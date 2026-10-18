@@ -1,0 +1,2 @@
+# Dependências só para desenvolvimento e testes (não vão para a imagem Docker).
+pytest>=7.0
