@@ -604,3 +604,6 @@ def _demonstracao() -> None:
 
 if __name__ == "__main__":
     _demonstracao()
+
+
+"""" Rapazes isto aqui só vai correr mesmo bem quando tivermos a base de dados operacional"""
