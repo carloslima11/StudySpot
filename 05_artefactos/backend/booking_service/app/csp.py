@@ -1,6 +1,6 @@
 """
 csp.py - Componente de Inteligência Artificial do projeto.
-Coloquei de maniera a que ficaSSE pronto para a integração vom a base de dados.
+Coloquei de maniera a que ficasse pronto para a integração vom a base de dados.
 
 Isto modela a atribuição de reservas como um Problema de Satisfação de Restrições
 (CSP) <V, D, C>:
