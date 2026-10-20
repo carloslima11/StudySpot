@@ -9,12 +9,6 @@ Isto modela a atribuição de reservas como um Problema de Satisfação de Restr
     D (domínios)   : as salas de estudo (cada pedido recebe uma sala ou fica sem poratnto fica em espera)
     C (restrições) : estrutura, capacidade, janela de funcionamento,
                      sobreposição e limite diário por estudante
-
-Princípios de desenho:
-  * Módulo PURO: não acede a PostgreSQL, Redis nem MQTT. Recebe dados, devolve
-    decisões. Isto torna-o testável e importável por qualquer endpoint FastAPI.
-  * É um PRÉ-FILTRO. A garantia final de não haver reservas duplicadas continua
-    a ser a restrição UNIQUE na BD + o lock no Redis.
 """
 
 from __future__ import annotations
@@ -24,14 +18,10 @@ from datetime import datetime, time, timedelta
 from itertools import chain
 from typing import Iterable, Optional
 
-
-# ---------------------------------------------------------------------------
 # Configuração e modelos de dados
-# ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class ConfigCSP:
-    "Depois digam-me se aqui está decente o tempo ou não, qualquer cena eu mudoi logo"
     slot_minutos: int = 30
     limite_diario_horas: float = 4.0
     estrategia: str = "fifo"
@@ -41,9 +31,9 @@ class ConfigCSP:
 class Sala:
     id: str
     capacidade: int
-    abertura: time  # Abertura ficticia das salas
-    fecho: time     # fecho ficticio das salas
-    ativa: bool = True  # caso alguma sala estejá fora de acesso
+    abertura: time
+    fecho: time
+    ativa: bool = True
 
 @dataclass(frozen=True)
 class PedidoReserva:
@@ -54,7 +44,7 @@ class PedidoReserva:
     inicio: datetime
     fim: datetime
     criado_em: datetime
-    sala_id: Optional[str] = None     # se indicado, o domínio reduz-se a essa sala
+    sala_id: Optional[str] = None
 
     @property
     def horas(self) -> float:
@@ -92,7 +82,6 @@ class PedidoEspera:
         return self.duracao_minutos / 60
 
     def inicios_possiveis(self, cfg: ConfigCSP) -> list[datetime]:
-        """Horas de início candidatas (uma por bloco) em que a duração cabe na janela."""
         if self.duracao_minutos <= 0 or cfg.slot_minutos <= 0:
             return []
         duracao = timedelta(minutes=self.duracao_minutos)
@@ -105,7 +94,6 @@ class PedidoEspera:
         return inicios
 
     def concretizar(self, inicio: datetime) -> PedidoReserva:
-        """Fixa uma hora de início, obtendo um pedido de horário fixo."""
         return PedidoReserva(
             id=self.id, estudante_id=self.estudante_id, participantes=self.participantes,
             inicio=inicio, fim=inicio + timedelta(minutes=self.duracao_minutos),
@@ -113,10 +101,7 @@ class PedidoEspera:
 
 
 def para_espera(p: PedidoReserva) -> PedidoEspera:
-    """Converte um pedido recusado por falta de vaga numa linha de `lista_espera`.
 
-    A janela passa a ser exatamente o horário pedido e a duração a diferença entre fim e início.
-    """
     return PedidoEspera(
         id=p.id, estudante_id=p.estudante_id, participantes=p.participantes,
         janela_inicio=p.inicio, janela_fim=p.fim,
@@ -130,23 +115,16 @@ Opcao = tuple[Sala, PedidoReserva]      # um valor do domínio: sala + horário 
 
 @dataclass
 class Resultado:
-    """Resultado da validação de UM pedido numa sala."""
     valido: bool
     motivos: list[str] = field(default_factory=list)
 
 
 @dataclass
 class Resolucao:
-    """Resultado do solver para um conjunto de pedidos."""
-    atribuicoes: dict[str, str] = field(default_factory=dict)         # pedido_id -> sala_id
-    # pedido_id -> (início, fim) atribuídos. Em pedidos de horário fixo é o horário
-    # pedido; em PedidoEspera é a hora que o CSP escolheu dentro da janela.
+    atribuicoes: dict[str, str] = field(default_factory=dict)
     horarios: dict[str, tuple[datetime, datetime]] = field(default_factory=dict)
-    rejeitados: dict[str, list[str]] = field(default_factory=dict)    # pedido_id -> motivos
-    # Subconjunto de `rejeitados` que vale a pena guardar em lista de espera:
-    # o pedido é válido em si, só não coube por conflito de ocupação (ordem FIFO).
+    rejeitados: dict[str, list[str]] = field(default_factory=dict)
     lista_espera: list[str] = field(default_factory=list)
-
 
 @dataclass
 class Alternativas:
@@ -238,18 +216,10 @@ def validar_pedido(p: PedidoReserva, sala: Sala, reservas: Iterable[Reserva],
     motivos = [m for m in verificacoes if m is not None]
     return Resultado(valido=not motivos, motivos=motivos)
 
-
-# ---------------------------------------------------------------------------
 # Solver
-# ---------------------------------------------------------------------------
 
 def _dominio(p: Pedido, salas: list[Sala], cfg: ConfigCSP) -> list[Opcao]:
-    """Domínio inicial de um pedido: pares (sala, horário concreto) que cumprem as
-    restrições UNÁRIAS (dependem só do pedido e da sala).
 
-    Pedido de horário fixo -> um só horário. PedidoEspera -> um horário por cada
-    início possível dentro da janela. Ordem de preferência: hora mais cedo e,
-    a seguir, a sala mais pequena que sirva (não desperdiçar salas grandes)."""
     if isinstance(p, PedidoEspera):
         concretos = [p.concretizar(i) for i in p.inicios_possiveis(cfg)]
     else:
@@ -375,12 +345,7 @@ def _resolver_maximizar(ordem, dominios, existentes, cfg) -> dict:
 
 def slots_ocupados(inicio: datetime, fim: datetime,
                    cfg: ConfigCSP = ConfigCSP()) -> list[datetime]:
-    """Início de cada bloco ocupado por uma reserva.
 
-    Corresponde às linhas de ReservaSlot (sala_id, slot_inicio), protegidas por
-    UNIQUE (sala_id, slot_inicio). Ex.: 10:00-11:30 com blocos de 30 min
-    -> [10:00, 10:30, 11:00].
-    """
     passo = timedelta(minutes=cfg.slot_minutos)
     slots: list[datetime] = []
     atual = inicio
@@ -394,12 +359,7 @@ def sugerir_alternativas(pedido: PedidoReserva, salas: Iterable[Sala],
                          reservas_fixas: Iterable[Reserva] = (),
                          cfg: ConfigCSP = ConfigCSP(),
                          max_horarios: int = 3) -> Alternativas:
-    """Procura saídas para um pedido recusado, por filtragem do domínio.
 
-    1. Outras salas livres no mesmo horário.
-    2. Horários próximos (mesma duração, mesmo dia) em qualquer sala válida,
-       ordenados pela proximidade ao início pedido.
-    """
     salas = list(salas)
     fixas = list(reservas_fixas)
     resultado = Alternativas()
@@ -452,14 +412,6 @@ class MotorCSP:
                              reservas_fixas: Iterable[Reserva] = ()) -> Alternativas:
         return sugerir_alternativas(pedido, salas, reservas_fixas, self.cfg)
 
-
-# ---------------------------------------------------------------------------
-# API simples do enunciado: valores primitivos e dicionários
-#
-# São as funções pedidas na especificação do módulo. Servem para validar UM pedido
-# sem construir objetos (úteis em testes, demonstrações e endpoints simples).
-# O resto do módulo (dataclasses, solver, lista de espera) usa as mesmas regras.
-# ---------------------------------------------------------------------------
 
 _EPSILON = 1e-9  # tolerância para somas de horas em vírgula flutuante
 
@@ -567,9 +519,8 @@ def sugerir_sala_alternativa(reserva: dict, salas_info: dict[str, int],
     return min(candidatas)[1] if candidatas else None
 
 
-# ---------------------------------------------------------------------------
 # Demonstração monstra
-# ---------------------------------------------------------------------------
+
 
 def _demonstracao() -> None:
     abertura, fecho = time(8, 0), time(22, 0)

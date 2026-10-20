@@ -13,16 +13,12 @@ from typing import Any, ContextManager, Iterable, Optional, Protocol
 from app.csp import (Alternativas, ConfigCSP, MotorCSP, PedidoEspera, PedidoReserva,
                  Reserva, Sala, para_espera, slots_ocupados)
 
-# Estados de `reservas.estado` que ocupam salas e contam para o limite diário.
 ESTADOS_ATIVOS = ("confirmada", "concluida")
 
 
 class ConflitoSlot(Exception):
-    """A restrição UNIQUE (sala_id, slot_inicio) foi violada: outro pedido ficou com o slot."""
-
 
 class LockIndisponivel(Exception):
-    """Não foi possível obter o lock (Redis em baixo). Falha segura: não se confirma nada."""
 
 class Locks(Protocol):
     def adquirir(self, chaves: list[str]) -> ContextManager[None]: ...
@@ -81,10 +77,7 @@ def _arredondar_para_cima(t: datetime, slot_minutos: int) -> datetime:
     blocos = -(-minutos // slot_minutos)  # divisão por excesso
     return base + timedelta(minutes=blocos * slot_minutos)
 
-
-# ---------------------------------------------------------------------------
 # Diagrama 3: criar reserva
-# ---------------------------------------------------------------------------
 
 @dataclass
 class ResultadoCriacao:
@@ -145,10 +138,7 @@ def criar_reserva(repo: Repositorio, locks: Locks, *, utilizador_id: int,
         return ResultadoCriacao("espera", motivos=motivos, alternativas=alternativas)
     return ResultadoCriacao("recusada", motivos=motivos, alternativas=alternativas)
 
-
-# ---------------------------------------------------------------------------
 # Diagrama 4: libertação automática + realocação da lista de espera
-# ---------------------------------------------------------------------------
 
 @dataclass
 class ResumoLibertacao:
@@ -164,16 +154,12 @@ def libertar_e_realocar(repo: Repositorio, locks: Locks, *, agora: datetime,
                         cfg: ConfigCSP = ConfigCSP()) -> ResumoLibertacao:
     resumo = ResumoLibertacao()
 
-    # Guarda de segurança: com o broker MQTT em baixo ninguém consegue fazer check-in,
-    # e libertar "reservas sem check-in" libertaria TODAS por engano.
     if not broker_saudavel:
         resumo.saltada = True
         return resumo
 
-    # 1. Libertar as reservas sem check-in (FOR UPDATE SKIP LOCKED dentro do repositório).
     resumo.libertadas = repo.libertar_sem_checkin(limite=agora - tolerancia, agora=agora)
 
-    # 2. Reavaliar a lista de espera. Nunca se atribui uma hora que já passou.
     minimo = _arredondar_para_cima(agora, cfg.slot_minutos)
     originais = {str(e.id): e for e in repo.espera_ativa()}
     pedidos: list[PedidoEspera] = []
@@ -193,7 +179,6 @@ def libertar_e_realocar(repo: Repositorio, locks: Locks, *, agora: datetime,
     fixas = [reserva_para_csp(r) for r in repo.reservas_ativas_nos_dias(dias)]
     res = MotorCSP(cfg).resolver(pedidos, salas, fixas)
 
-    # 3. Confirmar cada atribuição (locks + UNIQUE). Se perder a corrida, fica em espera.
     for p in pedidos:
         if p.id not in res.atribuicoes:
             continue
