@@ -17,8 +17,12 @@ ESTADOS_ATIVOS = ("confirmada", "concluida")
 
 
 class ConflitoSlot(Exception):
+    pass
+
 
 class LockIndisponivel(Exception):
+    pass
+
 
 class Locks(Protocol):
     def adquirir(self, chaves: list[str]) -> ContextManager[None]: ...
@@ -74,10 +78,8 @@ def _dias_da_janela(p: PedidoEspera) -> set[date]:
 def _arredondar_para_cima(t: datetime, slot_minutos: int) -> datetime:
     base = t.replace(hour=0, minute=0, second=0, microsecond=0)
     minutos = t.hour * 60 + t.minute + (1 if (t.second or t.microsecond) else 0)
-    blocos = -(-minutos // slot_minutos)  # divisão por excesso
+    blocos = -(-minutos // slot_minutos)
     return base + timedelta(minutes=blocos * slot_minutos)
-
-# Diagrama 3: criar reserva
 
 @dataclass
 class ResultadoCriacao:
@@ -113,7 +115,6 @@ def criar_reserva(repo: Repositorio, locks: Locks, *, utilizador_id: int,
             break
         escolhida = res.atribuicoes["novo"]
         slots = slots_ocupados(inicio, fim, cfg)
-        # 4. Locks por slot (Redis) e INSERT (UNIQUE na BD como garantia final).
         with locks.adquirir(chaves_lock(escolhida, slots)):
             try:
                 reserva = repo.inserir_reserva(
@@ -121,11 +122,10 @@ def criar_reserva(repo: Repositorio, locks: Locks, *, utilizador_id: int,
                     fim=fim, n_pessoas=n_pessoas, chave_idempotencia=chave_idempotencia,
                     slots=slots)
             except ConflitoSlot:
-                conflito = True       # alguém passou à frente: voltar a decidir
+                conflito = True
                 continue
         return ResultadoCriacao("confirmada", reserva=reserva)
 
-    # 5. Sem solução: motivos + alternativas; lista de espera só se valer a pena.
     if conflito:
         motivos = ["O horário foi ocupado por outro pedido em simultâneo."]
         entra_em_espera = True
@@ -138,14 +138,13 @@ def criar_reserva(repo: Repositorio, locks: Locks, *, utilizador_id: int,
         return ResultadoCriacao("espera", motivos=motivos, alternativas=alternativas)
     return ResultadoCriacao("recusada", motivos=motivos, alternativas=alternativas)
 
-# Diagrama 4: libertação automática + realocação da lista de espera
 
 @dataclass
 class ResumoLibertacao:
-    saltada: bool = False                                   # broker em baixo: não se fez nada
-    libertadas: list[int] = field(default_factory=list)     # ids das reservas libertadas
-    realocadas: list[tuple[int, Any]] = field(default_factory=list)  # (espera_id, reserva)
-    expiradas: list[int] = field(default_factory=list)      # esperas cuja janela já passou
+    saltada: bool = False
+    libertadas: list[int] = field(default_factory=list)
+    realocadas: list[tuple[int, Any]] = field(default_factory=list)
+    expiradas: list[int] = field(default_factory=list)
 
 
 def libertar_e_realocar(repo: Repositorio, locks: Locks, *, agora: datetime,
@@ -166,7 +165,7 @@ def libertar_e_realocar(repo: Repositorio, locks: Locks, *, agora: datetime,
     for e in originais.values():
         p = espera_para_csp(e)
         p = replace(p, janela_inicio=max(p.janela_inicio, minimo))
-        if not p.inicios_possiveis(cfg):          # a duração já não cabe na janela restante
+        if not p.inicios_possiveis(cfg):
             repo.marcar_espera_expirada(e.id)
             resumo.expiradas.append(e.id)
             continue
@@ -184,7 +183,7 @@ def libertar_e_realocar(repo: Repositorio, locks: Locks, *, agora: datetime,
             continue
         e = originais[p.id]
         inicio, fim = res.horarios[p.id]
-        chave = f"espera-{p.id}"       # torna a tarefa idempotente se repetir a meio
+        chave = f"espera-{p.id}"
         ja = repo.reserva_por_chave(e.utilizador_id, chave)
         if ja is not None:
             repo.marcar_espera_atendida(e.id, ja)
