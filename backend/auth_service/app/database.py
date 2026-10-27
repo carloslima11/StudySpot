@@ -1,22 +1,30 @@
-import psycopg2  # pyright: ignore[reportMissingModuleSource]
+import os
+import psycopg
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def get_db_connection():
     try:
-        connection = psycopg2.connect(
-            host="localhost",
-            database="studyspot",
-            user="postgres",
-            password="admin1234",
-        )
+        with psycopg.connect(
+            host=os.getenv("DB_HOST"),
+            port=os.getenv("DB_PORT"),
+            dbname=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            connect_timeout=5
+        ) as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT current_database(), current_user;")
+                result = cur.fetchone()
+                if result is not None:
+                    print("Database connection successful.")
+                else:
+                    print("Database connection failed.")
 
-        print("Database connection established.")
-        return connection
-    except psycopg2.Error as e:
+    except Exception as e:
         print(f"Error connecting to the database: {e}")
-        return None
 
-    if __name__ == "__main__":
-        conn = get_db_connection()
-        if conn:
-            conn.close()
-            print("Database connection closed.")
+if __name__ == "__main__":
+    get_db_connection()
+            
