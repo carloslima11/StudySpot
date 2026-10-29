@@ -105,6 +105,9 @@ services:
       interval: "10s"
       timeout: "3s"
       retries: 3
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
 
   booking2:
     build: ./backend/booking_service
@@ -123,6 +126,9 @@ services:
       interval: "10s"
       timeout: "3s"
       retries: 3
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
 
 volumes:
   pgdata:
