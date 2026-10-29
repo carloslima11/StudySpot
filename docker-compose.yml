@@ -10,8 +10,8 @@ services:
       - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 3s
+      interval: "5s"
+      timeout: "3s"
       retries: 10
     ports:
       - "127.0.0.1:15432:5432"
@@ -21,8 +21,8 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
+      interval: "5s"
+      timeout: "3s"
       retries: 10
     ports:
       - "127.0.0.1:16379:6379"
@@ -45,8 +45,8 @@ services:
         - python
         - -c
         - "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health/live', timeout=2)"
-      interval: 10s
-      timeout: 3s
+      interval: "10s"
+      timeout: "3s"
       retries: 3
 
   auth2:
@@ -67,8 +67,8 @@ services:
         - python
         - -c
         - "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health/live', timeout=2)"
-      interval: 10s
-      timeout: 3s
+      interval: "10s"
+      timeout: "3s"
       retries: 3
 
   nginx:
@@ -83,6 +83,46 @@ services:
         condition: service_healthy
       auth2:
         condition: service_healthy
+      booking1:
+        condition: service_healthy
+      booking2:
+        condition: service_healthy
+
+  booking1:
+    build: ./backend/booking_service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health/live', timeout=2)"
+      interval: "10s"
+      timeout: "3s"
+      retries: 3
+
+  booking2:
+    build: ./backend/booking_service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health/live', timeout=2)"
+      interval: "10s"
+      timeout: "3s"
+      retries: 3
 
 volumes:
   pgdata:
