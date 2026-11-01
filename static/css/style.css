@@ -1,0 +1,171 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --preto: #111111;
+  --branco: #ffffff;
+  --creme: #f5f4f0;
+  --lima: #d9ff3f;
+  --cinza: #6b6b6b;
+  --borda: #dcdcdc;
+}
+
+body {
+  font-family: "Inter", sans-serif;
+  color: var(--preto);
+  min-height: 100vh;
+}
+
+.split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 100vh;
+}
+
+/* ---------- LADO ESQUERDO ---------- */
+.hero {
+  background: var(--preto);
+  color: var(--branco);
+  padding: 60px 90px 40px;
+  display: flex;
+  flex-direction: column;
+  background-image:
+    linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
+  background-size: 52px 52px;
+}
+
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-icon {
+  width: 32px; height: 32px; border: 2px solid #fff; border-radius: 50%;
+  display: grid; place-items: center;
+}
+.brand-icon span { width: 7px; height: 7px; border: 2px solid #fff; border-radius: 50%; }
+.brand-name { font-family: "Caveat Brush", cursive; font-size: 28px; }
+
+.tagline {
+  font-family: "Space Mono", monospace;
+  font-size: 15px; letter-spacing: .5px; margin-top: 4px;
+}
+
+.hero-title {
+  font-family: "Caveat Brush", cursive;
+  font-weight: 400;
+  font-size: 72px; line-height: 1.1;
+  margin: 28px 0 32px;
+}
+
+.hero-sub { font-size: 17px; line-height: 1.7; }
+
+.ticket-wrap { position: relative; margin: 60px 0 0 0; height: 270px; }
+.ticket {
+  position: absolute; left: 0; top: 0;
+  width: 370px; background: var(--creme); color: var(--preto);
+  padding: 28px 24px; transform: rotate(-1.5deg);
+  box-shadow: 10px 10px 0 #2a2a2a;
+}
+.ticket-top { display: flex; justify-content: space-between; font-size: 12px; align-items: center; }
+.badge { background: var(--lima); padding: 8px 10px; font-size: 11px; font-weight: 600; }
+.ticket-line { border-top: 1px dashed #999; margin: 16px 0 26px; }
+.ticket-room { font-family: "Caveat Brush", cursive; font-size: 26px; }
+.ticket-room strong { font-size: 36px; font-weight: 400; }
+.ticket-info { display: flex; gap: 70px; margin-top: 18px; }
+.ticket-info small { font-size: 10px; color: var(--cinza); }
+.ticket-info p { font-family: "Caveat Brush", cursive; font-size: 16px; margin-top: 2px; }
+.barcode {
+  height: 26px; margin-top: 16px; width: 100px;
+  background: repeating-linear-gradient(90deg, #111 0 2px, transparent 2px 4px, #111 4px 7px, transparent 7px 9px);
+}
+.spark { position: absolute; left: 430px; top: 10px; color: var(--lima); font-size: 38px; }
+.note {
+  position: absolute; left: 405px; top: 75px;
+  font-family: "Caveat Brush", cursive; font-size: 17px; transform: rotate(-4deg);
+}
+
+.hero-foot {
+  margin-top: auto; padding-top: 24px;
+  border-top: 1px solid #444; max-width: 620px;
+  font-family: "Caveat Brush", cursive; color: #aaa; font-size: 17px;
+}
+
+/* ---------- LADO DIREITO ---------- */
+.panel {
+  background: var(--creme);
+  display: grid; place-items: center; padding: 40px;
+}
+
+.card {
+  background: var(--branco);
+  width: 100%; max-width: 527px;
+  padding: 56px 52px 40px;
+  box-shadow: 12px 12px 0 #ebebe6;
+  border: 1px solid #eee;
+}
+
+.step {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 14px; color: var(--cinza); margin-bottom: 48px;
+}
+.step-bars { display: flex; gap: 4px; }
+.step-bars i { width: 36px; height: 4px; background: #ddd; display: block; }
+.step-bars i.on { background: var(--preto); }
+
+.eyebrow { font-family: "Space Mono", monospace; font-size: 15px; letter-spacing: 1px; }
+.card-title { font-family: "Caveat Brush", cursive; font-weight: 400; font-size: 54px; margin: 8px 0 14px; }
+.card-sub { color: var(--cinza); margin-bottom: 36px; }
+
+label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+input[type="email"], input[type="password"], input[type="text"] {
+  width: 100%; height: 56px; padding: 0 16px; margin-bottom: 24px;
+  border: 1px solid var(--borda); font-size: 16px; font-family: inherit; outline: none;
+}
+input:focus { border-color: var(--preto); }
+
+.row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 26px; }
+.check { display: flex; align-items: center; gap: 8px; font-weight: 400; margin: 0; font-size: 14px; }
+.link { color: var(--preto); font-size: 14px; }
+
+.btn {
+  width: 100%; height: 54px; background: var(--preto); color: #fff;
+  border: none; font-size: 16px; font-weight: 600; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+}
+.btn:hover { background: #333; }
+
+.help { text-align: center; margin-top: 28px; font-size: 14px; color: var(--cinza); }
+.help-icon {
+  display: inline-grid; place-items: center; width: 18px; height: 18px;
+  border: 1px solid #999; border-radius: 50%; font-size: 11px; margin-right: 4px;
+}
+
+.alert { padding: 12px 14px; margin-bottom: 20px; font-size: 14px; }
+.alert.erro { background: #ffe9e9; color: #a30000; border: 1px solid #f5bcbc; }
+
+/* ---------- MOBILE ---------- */
+@media (max-width: 900px) {
+  .split { grid-template-columns: 1fr; }
+  .hero { display: none; }
+  .card { padding: 36px 24px; }
+}
+
+/* ---------- PASSO 2 (2FA) ---------- */
+.shield {
+  width: 56px; height: 56px;
+  border: 2px solid var(--preto); border-radius: 50%;
+  display: grid; place-items: center;
+  margin-bottom: 28px;
+}
+
+.code-input {
+  text-align: center;
+  font-family: "Space Mono", monospace;
+  font-size: 28px !important;
+  letter-spacing: 10px;
+  height: 64px !important;
+  margin-bottom: 24px;
+  border: 2px solid var(--preto) !important;
+  box-shadow: 4px 4px 0 #e2e2dc;
+}
+.code-input::placeholder { color: #b5b5b5; letter-spacing: 10px; }
+
+.back { text-align: center; margin-top: 22px; }
+.back .link { border-bottom: 1px solid var(--preto); text-decoration: none; padding-bottom: 1px; }

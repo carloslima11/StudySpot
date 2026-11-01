@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Verificação · StudySpot{% endblock %}
+
+{% block content %}
+<main class="split">
+
+  <!-- LADO ESQUERDO -->
+  <section class="hero">
+    <div class="brand">
+      <span class="brand-icon"><span></span></span>
+      <span class="brand-name">StudySpot</span>
+    </div>
+    <p class="tagline">O TEU LUGAR PARA ESTUDAR</p>
+
+    <h1 class="hero-title">Uma sala livre.<br>Uma ideia a acontecer.</h1>
+    <p class="hero-sub">Reserva espaços de estudo no campus sem filas,<br>telefonemas ou complicações.</p>
+
+    <footer class="hero-foot">Feito para estudantes que têm mais que fazer.</footer>
+  </section>
+
+  <!-- LADO DIREITO -->
+  <section class="panel">
+    <div class="card">
+      <div class="step">
+        <span>Passo 2 de 2</span>
+        <div class="step-bars"><i class="on"></i><i class="on"></i></div>
+      </div>
+
+      <div class="shield">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6l7-3z"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+      </div>
+
+      <p class="eyebrow">VERIFICAÇÃO DE SEGURANÇA</p>
+      <h2 class="card-title">Confirma que és tu</h2>
+      <p class="card-sub">Introduz o código de 6 dígitos da tua aplicação Google Authenticator.</p>
+
+      {% with mensagens = get_flashed_messages(with_categories=true) %}
+        {% for categoria, msg in mensagens %}
+          <div class="alert {{ categoria }}">{{ msg }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <form method="POST" action="{{ url_for('auth.verificar') }}" id="form-2fa">
+        <label for="codigo">Código de verificação</label>
+        <input type="text" id="codigo" name="codigo" class="code-input"
+               inputmode="numeric" autocomplete="one-time-code"
+               maxlength="7" placeholder="000 000" required autofocus>
+
+        <button type="submit" class="btn">Entrar <span>→</span></button>
+      </form>
+
+      <p class="back">
+        <a href="{{ url_for('auth.logout') }}" class="link">← Voltar ao início</a>
+      </p>
+
+      <p class="help">
+        <span class="help-icon">?</span>
+        Precisas de ajuda? <a href="#" class="link">Contacta o apoio</a>
+      </p>
+    </div>
+  </section>
+
+</main>
+{% endblock %}

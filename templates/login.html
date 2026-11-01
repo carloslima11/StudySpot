@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Entrar · StudySpot{% endblock %}
+
+{% block content %}
+<main class="split">
+
+  <!-- LADO ESQUERDO -->
+  <section class="hero">
+    <div class="brand">
+      <span class="brand-icon"><span></span></span>
+      <span class="brand-name">StudySpot</span>
+    </div>
+    <p class="tagline">O TEU LUGAR PARA ESTUDAR</p>
+
+    <h1 class="hero-title">Uma sala livre.<br>Uma ideia a acontecer.</h1>
+    <p class="hero-sub">Reserva espaços de estudo no campus sem filas,<br>telefonemas ou complicações.</p>
+
+    <div class="ticket-wrap">
+      <div class="ticket">
+        <div class="ticket-top">
+          <span>PRÓXIMA SESSÃO</span>
+          <span class="badge">CONFIRMADA</span>
+        </div>
+        <div class="ticket-line"></div>
+        <div class="ticket-room">Sala <strong>B.214</strong></div>
+        <div class="ticket-info">
+          <div><small>QUA · 06 NOV</small><p>14:30 — 16:00</p></div>
+          <div><small>LUGARES</small><p>4 pessoas</p></div>
+        </div>
+        <div class="barcode"></div>
+      </div>
+      <span class="spark">✦</span>
+      <span class="note">sem filas<br>sem stress ↗</span>
+    </div>
+
+    <footer class="hero-foot">Feito para estudantes que têm mais que fazer.</footer>
+  </section>
+
+  <!-- LADO DIREITO -->
+  <section class="panel">
+    <div class="card">
+      <div class="step">
+        <span>Passo 1 de 2</span>
+        <div class="step-bars"><i class="on"></i><i></i></div>
+      </div>
+
+      <p class="eyebrow">BEM-VINDO DE VOLTA</p>
+      <h2 class="card-title">Entrar na conta</h2>
+      <p class="card-sub">Usa os dados da tua conta académica.</p>
+
+      {% with mensagens = get_flashed_messages(with_categories=true) %}
+        {% for categoria, msg in mensagens %}
+          <div class="alert {{ categoria }}">{{ msg }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <form method="POST" action="{{ url_for('auth.login') }}">
+        <label for="email">E-mail</label>
+        <input type="email" id="email" name="email" placeholder="nome@universidade.pt" required>
+
+        <label for="password">Palavra-passe</label>
+        <input type="password" id="password" name="password" placeholder="A tua palavra-passe" required>
+
+        <div class="row">
+          <label class="check">
+            <input type="checkbox" name="remember"> Lembrar-me
+          </label>
+          <a href="#" class="link">Recuperar palavra-passe</a>
+        </div>
+
+        <button type="submit" class="btn">Continuar <span>→</span></button>
+      </form>
+
+      <p class="help">
+        <span class="help-icon">?</span>
+        Precisas de ajuda? <a href="#" class="link">Contacta o apoio</a>
+      </p>
+    </div>
+  </section>
+
+</main>
+{% endblock %}
