@@ -1,8 +1,8 @@
 import logging
-from datetime import timedelta
+from datetime import date, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
 
 from app.core.config import Settings, get_settings
 from app.csp import Alternativas, ConfigCSP
@@ -10,8 +10,8 @@ from app.deps import agora, get_cfg, get_locks, get_repo, utilizador_atual
 from app.locks_redis import LocksRedis, RedisIndisponivel
 from app.qr_checkin import gerar_token
 from app.repo_sql import RepositorioSQL
-from app.schemas import (AlternativasOut, CriacaoOut, HorarioAlternativo, QrOut, ReservaIn,
-                         ReservaOut, SalaOut)
+from app.schemas import (AlternativasOut, CriacaoOut, EsperaOut, HorarioAlternativo, OcupacaoOut,
+                         QrOut, ReservaIn, ReservaOut, SalaOut)
 from app.servico_reservas import LockIndisponivel, criar_reserva, realocar_espera
 
 router = APIRouter(prefix="/api")
@@ -35,10 +35,38 @@ def listar_salas(repo: Annotated[RepositorioSQL, Depends(get_repo)],
     return [s for s in repo.salas() if s.ativa]
 
 
+@router.get("/salas/ocupacao", response_model=list[OcupacaoOut])
+def ocupacao(dia: Annotated[date, Query()],
+             repo: Annotated[RepositorioSQL, Depends(get_repo)],
+             utilizador_id: Annotated[int, Depends(utilizador_atual)]):
+    return [OcupacaoOut(sala_id=r.sala_id, inicio=r.inicio, fim=r.fim,
+                        minha=r.utilizador_id == utilizador_id)
+            for r in repo.reservas_ativas_nos_dias({dia})]
+
+
 @router.get("/reservas/minhas", response_model=list[ReservaOut])
 def minhas_reservas(repo: Annotated[RepositorioSQL, Depends(get_repo)],
                     utilizador_id: Annotated[int, Depends(utilizador_atual)]):
     return repo.reservas_do_utilizador(utilizador_id)
+
+
+@router.get("/reservas/espera", response_model=list[EsperaOut])
+def minhas_esperas(repo: Annotated[RepositorioSQL, Depends(get_repo)],
+                   utilizador_id: Annotated[int, Depends(utilizador_atual)]):
+    return repo.esperas_do_utilizador(utilizador_id)
+
+
+@router.delete("/reservas/espera/{espera_id}", status_code=204)
+def sair_da_espera(espera_id: int,
+                   utilizador_id: Annotated[int, Depends(utilizador_atual)],
+                   repo: Annotated[RepositorioSQL, Depends(get_repo)]):
+    espera = repo.sair_espera(utilizador_id, espera_id)
+    if espera is None:
+        raise HTTPException(status_code=404, detail="Pedido de espera não encontrado.")
+    if espera.estado != "ativa":
+        raise HTTPException(status_code=409,
+                            detail=f"Este pedido de espera já está {espera.estado}.")
+    return Response(status_code=204)
 
 
 @router.post("/reservas", response_model=CriacaoOut)

@@ -1,0 +1,44 @@
+{% extends "app_base.html" %}
+{% block title %}Perfil · StudySpot{% endblock %}
+
+{% block pagina %}
+<section class="cabeca">
+  <p class="eyebrow">A TUA CONTA</p>
+  <h1 class="titulo">Perfil</h1>
+  <p class="sub">Os teus dados, o resumo das reservas e a palavra-passe.</p>
+</section>
+
+<div class="colunas">
+  <section class="bloco bloco-dir" aria-labelledby="dados-titulo">
+    <div>
+      <h2 id="dados-titulo">Dados</h2>
+      <ul class="perfil-dados">
+        <li class="longo"><small>E-mail</small><strong>{{ utilizador.email }}</strong></li>
+        <li><small>Verificação em dois passos</small><strong>Ativa</strong></li>
+        <li><small>Limite diário</small><strong>4 horas</strong></li>
+        <li><small>Reservas marcadas</small><strong>{{ contagem.confirmadas }}</strong></li>
+        <li><small>Na lista de espera</small><strong>{{ contagem.espera }}</strong></li>
+        <li><small>Concluídas</small><strong>{{ contagem.concluidas }}</strong></li>
+        <li><small>Libertadas sem check-in</small><strong>{{ contagem.libertadas }}</strong></li>
+      </ul>
+      <a class="btn btn-auto" href="{{ url_for('reservas.minhas') }}">Ver as minhas reservas <span>→</span></a>
+    </div>
+  </section>
+
+  <section class="bloco bloco-form" aria-labelledby="pp-titulo">
+    <h2 id="pp-titulo">Mudar palavra-passe</h2>
+    <form method="POST" action="{{ url_for('conta.perfil') }}">
+      <label for="atual">Palavra-passe atual</label>
+      <input type="password" id="atual" name="atual" autocomplete="current-password" required>
+
+      <label for="nova">Nova palavra-passe</label>
+      <input type="password" id="nova" name="nova" minlength="10" placeholder="Pelo menos 10 caracteres" autocomplete="new-password" required>
+
+      <label for="nova2">Repetir nova palavra-passe</label>
+      <input type="password" id="nova2" name="nova2" minlength="10" autocomplete="new-password" required>
+
+      <button type="submit" class="btn">Guardar <span>→</span></button>
+    </form>
+  </section>
+</div>
+{% endblock %}

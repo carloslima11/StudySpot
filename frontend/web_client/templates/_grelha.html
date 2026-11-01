@@ -1,0 +1,24 @@
+<div class="grelha-caixa">
+  <div class="grelha" role="table" aria-label="Ocupação das salas por meia hora">
+    <div role="row" class="grelha-linha">
+      <span role="columnheader"></span>
+      {% for h in grelha.horas %}<span role="columnheader" class="hora">{{ h }}</span>{% endfor %}
+    </div>
+    {% for linha in grelha.linhas %}
+    <div role="row" class="grelha-linha">
+      <div role="rowheader" class="sala-rotulo">
+        <span class="sala-nome">{{ linha.sala.nome }}</span>
+        <span class="sala-lug">{{ linha.sala.capacidade }} lugares</span>
+      </div>
+      {% for c in linha.celulas %}<span role="cell" class="cel {{ c.estado }}" title="{{ c.titulo }} · {{ c.estado }}"></span>{% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+<ul class="legenda" aria-label="Legenda">
+  <li><span class="cel livre"></span>Livre</li>
+  <li><span class="cel ocupada"></span>Ocupada</li>
+  <li><span class="cel minha"></span>Já é tua</li>
+  <li><span class="cel pedido"></span>O teu pedido</li>
+  <li><span class="cel fechada"></span>Sala fechada</li>
+</ul>

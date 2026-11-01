@@ -1,0 +1,75 @@
+{% extends "app_base.html" %}
+{% block title %}As minhas reservas · StudySpot{% endblock %}
+
+{% block pagina %}
+<section class="cabeca">
+  <p class="eyebrow">HOJE: {{ horas_hoje | upper }} DE {{ limite }} H RESERVADAS</p>
+  <h1 class="titulo">As minhas reservas</h1>
+  <p class="sub">Mostra o QR ao leitor da porta para fazer check-in. Sem check-in, a sala é libertada para quem está à espera.</p>
+</section>
+
+<section class="secao" aria-labelledby="proximas-titulo">
+  <h2 id="proximas-titulo" class="secao-titulo">Próximas</h2>
+  {% if proximas %}
+  <div class="bilhetes">
+    {% for r in proximas %}
+    <article class="bilhete">
+      <div class="bilhete-topo">
+        <span>{% if loop.first %}A SEGUIR{% else %}RESERVA{% endif %}</span>
+        <span class="badge">{% if r.check_in_em %}CHECK-IN FEITO{% else %}CONFIRMADA{% endif %}</span>
+      </div>
+      <div class="bilhete-linha"></div>
+      <div class="bilhete-sala">{{ r.sala_nome }}</div>
+      <div class="bilhete-info">
+        <div><small>{{ r.inicio_dt | dia_curto }}</small><p>{{ r.inicio_dt | hora }} — {{ r.fim_dt | hora }}</p></div>
+        <div><small>LUGARES</small><p>{{ r.n_pessoas }} pessoas</p></div>
+      </div>
+      <div class="barcode"></div>
+      <div class="bilhete-acoes">
+        <a class="btn-sec" href="{{ url_for('reservas.qr', reserva_id=r.id) }}">Mostrar QR</a>
+        <form method="POST" action="{{ url_for('reservas.cancelar', reserva_id=r.id) }}">
+          <button type="submit" class="btn-sec btn-perigo">Cancelar</button>
+        </form>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+    <div class="vazio">
+      <p>Ainda não tens reservas marcadas.</p>
+      <a class="btn btn-auto" href="{{ url_for('reservas.nova') }}">Fazer uma reserva <span>→</span></a>
+    </div>
+  {% endif %}
+</section>
+
+{% if em_espera %}
+<section class="secao" aria-labelledby="espera-titulo">
+  <h2 id="espera-titulo" class="secao-titulo">Na lista de espera</h2>
+  <ul class="historico espera">
+    {% for e in em_espera %}
+    <li>
+      <span>{{ e.inicio_dt | dia_curto }} · entre {{ e.inicio_dt | hora }} e {{ e.fim_dt | hora }} · {{ e.duracao_txt }} · {{ e.n_pessoas }} pessoas</span>
+      <form method="POST" action="{{ url_for('reservas.sair_espera', espera_id=e.id) }}">
+        <button type="submit" class="btn-sec btn-perigo">Sair da espera</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="nota">Se uma sala ficar livre dentro desta janela, é reservada para ti automaticamente e aparece em "Próximas".</p>
+</section>
+{% endif %}
+
+{% if anteriores %}
+<section class="secao" aria-labelledby="anteriores-titulo">
+  <h2 id="anteriores-titulo" class="secao-titulo">Anteriores</h2>
+  <ul class="historico">
+    {% for r in anteriores %}
+    <li>
+      <span>{{ r.inicio_dt | dia_curto }} · {{ r.inicio_dt | hora }}–{{ r.fim_dt | hora }} · {{ r.sala_nome }}</span>
+      <span class="estado-{{ r.estado }}">{{ r.estado }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

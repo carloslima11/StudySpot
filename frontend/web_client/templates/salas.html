@@ -1,0 +1,25 @@
+{% extends "app_base.html" %}
+{% block title %}Salas · StudySpot{% endblock %}
+
+{% block pagina %}
+<section class="cabeca">
+  <p class="eyebrow">{{ hoje | dia_curto }} · {{ salas | length }} SALAS</p>
+  <h1 class="titulo">Salas de estudo</h1>
+  <p class="sub">Capacidade, horário e ocupação de hoje.</p>
+</section>
+
+<div class="cartoes-salas">
+  {% for s in salas %}
+  <article class="bloco sala-cartao">
+    <h2>{{ s.nome }}</h2>
+    <p class="sala-dados"><span>{{ s.capacidade }} lugares</span><span>{{ s.abertura[:5] }}–{{ s.fecho[:5] }}</span></p>
+    <a class="btn-sec" href="{{ url_for('reservas.nova', sala=s.id, dia=hoje.isoformat()) }}">Reservar esta sala</a>
+  </article>
+  {% endfor %}
+</div>
+
+<section class="bloco" aria-labelledby="hoje-titulo">
+  <h2 id="hoje-titulo">Ocupação de hoje</h2>
+  {% include "_grelha.html" %}
+</section>
+{% endblock %}

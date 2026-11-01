@@ -123,6 +123,24 @@ class RepositorioSQL:
         self.sessao.commit()
         return espera
 
+    def esperas_do_utilizador(self, utilizador_id: int) -> list[ListaEspera]:
+        return list(self.sessao.scalars(
+            select(ListaEspera).where(ListaEspera.utilizador_id == utilizador_id)
+            .order_by(ListaEspera.janela_inicio.desc(), ListaEspera.id.desc())))
+
+    def sair_espera(self, utilizador_id: int, espera_id: int) -> Optional[ListaEspera]:
+        espera = self.sessao.scalars(
+            select(ListaEspera).where(ListaEspera.id == espera_id).with_for_update()).first()
+        if espera is None or espera.utilizador_id != utilizador_id:
+            self.sessao.rollback()
+            return None
+        if espera.estado != "ativa":
+            self.sessao.rollback()
+            return espera
+        self.sessao.delete(espera)
+        self.sessao.commit()
+        return espera
+
     def espera_ativa(self) -> list[ListaEspera]:
         return list(self.sessao.scalars(
             select(ListaEspera).where(ListaEspera.estado == "ativa")

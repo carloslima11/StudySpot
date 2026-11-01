@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Ativar 2FA · StudySpot{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+<main class="split">
+  {% include "_hero.html" %}
+
+  <section class="panel">
+    <div class="card">
+      <div class="step">
+        <span>Passo 2 de 2</span>
+        <div class="step-bars"><i class="on"></i><i class="on"></i></div>
+      </div>
+
+      <p class="eyebrow">VERIFICAÇÃO EM DOIS PASSOS</p>
+      <h2 class="card-title">Liga a app</h2>
+      <p class="card-sub">Lê o QR com o Google ou o Microsoft Authenticator e escreve o código que aparece.</p>
+
+      {% with mensagens = get_flashed_messages(with_categories=true) %}
+        {% for categoria, msg in mensagens %}
+          <div class="alert {{ categoria }}">{{ msg }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <div class="registo-qr">
+        {% if svg %}<div class="qr" role="img" aria-label="QR code para a app autenticadora">{{ svg }}</div>{% endif %}
+        <p>Não consegues ler o QR? Escolhe "Introduzir chave" na app e escreve:<br>
+          <span class="segredo">{{ segredo }}</span><br>Conta: {{ email }}</p>
+      </div>
+
+      <form method="POST" action="{{ url_for('conta.registo_2fa') }}">
+        <label for="codigo">Código da app</label>
+        <input type="text" id="codigo" name="codigo" class="code-input"
+               inputmode="numeric" autocomplete="one-time-code"
+               maxlength="7" placeholder="000 000" required autofocus>
+
+        <button type="submit" class="btn">Criar conta <span>→</span></button>
+      </form>
+
+      <p class="back"><a href="{{ url_for('conta.registo') }}" class="link">← Voltar</a></p>
+    </div>
+  </section>
+</main>
+{% endblock %}

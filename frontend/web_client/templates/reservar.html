@@ -1,0 +1,127 @@
+{% extends "app_base.html" %}
+{% block title %}Nova reserva · StudySpot{% endblock %}
+
+{% block pagina %}
+<section class="cabeca">
+  <p class="eyebrow">{{ dia | dia_curto }}</p>
+  <h1 class="titulo">Nova reserva</h1>
+  <p class="sub">Diz quantos são e quando. Antes de confirmar, o sistema verifica a lotação, o horário da sala, as sobreposições e o teu limite de {{ limite }} horas por dia.</p>
+</section>
+
+<div class="colunas">
+  <form class="bloco bloco-form" method="POST" action="{{ url_for('reservas.nova') }}">
+    <h2>O teu pedido</h2>
+    <input type="hidden" name="chave" value="{{ chave }}">
+
+    <label for="pessoas">Número de pessoas</label>
+    <input type="number" id="pessoas" name="pessoas" min="1" max="50" value="{{ valores.pessoas }}" required>
+
+    <label for="dia">Dia</label>
+    <input type="date" id="dia" name="dia" value="{{ valores.dia }}" required>
+
+    <div class="duas">
+      <div>
+        <label for="inicio">Início</label>
+        <input type="time" id="inicio" name="inicio" step="1800" value="{{ valores.inicio }}" required>
+      </div>
+      <div>
+        <label for="fim">Fim</label>
+        <input type="time" id="fim" name="fim" step="1800" value="{{ valores.fim }}" required>
+      </div>
+    </div>
+
+    <label for="sala">Sala</label>
+    <select id="sala" name="sala">
+      <option value="">Qualquer sala livre</option>
+      {% for s in salas %}
+        <option value="{{ s.id }}" {% if valores.sala == s.id|string %}selected{% endif %}>{{ s.nome }} · {{ s.capacidade }} lugares</option>
+      {% endfor %}
+    </select>
+
+    <label class="check-linha">
+      <input type="checkbox" name="espera" value="1" {% if valores.espera %}checked{% endif %}>
+      Se estiver tudo ocupado, espero até
+    </label>
+    <input type="time" name="janela_fim" step="1800" value="{{ valores.janela_fim }}" aria-label="Esperar até">
+
+    <button type="submit" class="btn">Reservar <span>→</span></button>
+    <p class="nota">Blocos de 30 minutos · até {{ limite }} horas por dia</p>
+  </form>
+
+  <div class="bloco-dir">
+    {% if resultado %}
+    <section class="resultado" aria-live="polite">
+      {% if resultado.estado in ['confirmada', 'duplicada'] and resultado.reserva %}
+        {% set r = resultado.reserva %}
+        <div class="bilhete">
+          <div class="bilhete-topo">
+            <span>{% if resultado.estado == 'duplicada' %}PEDIDO JÁ FEITO{% else %}RESERVA FEITA{% endif %}</span>
+            <span class="badge">CONFIRMADA</span>
+          </div>
+          <div class="bilhete-linha"></div>
+          <div class="bilhete-sala">{{ salas_por_id[r.sala_id].nome if r.sala_id in salas_por_id else 'Sala ' ~ r.sala_id }}</div>
+          <div class="bilhete-info">
+            <div><small>{{ r.inicio | dia_curto }}</small><p>{{ r.inicio | hora }} — {{ r.fim | hora }}</p></div>
+            <div><small>LUGARES</small><p>{{ r.n_pessoas }} pessoas</p></div>
+          </div>
+          <div class="barcode"></div>
+          <a class="link bilhete-acao" href="{{ url_for('reservas.qr', reserva_id=r.id) }}">Ver QR de check-in →</a>
+        </div>
+      {% elif resultado.estado == 'espera' %}
+        <div class="alert info"><strong>Ficaste na lista de espera.</strong> Se uma sala ficar livre no teu horário, é reservada para ti automaticamente.</div>
+      {% elif resultado.estado == 'recusada' %}
+        <div class="alert erro"><strong>Não foi possível reservar.</strong> Vê os motivos e as alternativas abaixo.</div>
+      {% else %}
+        <div class="alert erro">{{ resultado.motivos | join(' ') }}</div>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    <section class="bloco" id="disponibilidade" aria-labelledby="disp-titulo">
+      <h2 id="disp-titulo">Disponibilidade · {{ dia | dia_curto }}</h2>
+      {% include "_grelha.html" %}
+    </section>
+
+    <section class="bloco" aria-labelledby="csp-titulo">
+      <h2 id="csp-titulo">Validação automática (CSP)</h2>
+      {% if regras %}
+        <ul class="regras">
+          {% for regra in regras %}
+          <li class="regra ok">
+            <span class="regra-icone" aria-hidden="true">✓</span>
+            <div><strong>{{ regra.nome }}</strong><span>{{ regra.detalhe }}</span></div>
+          </li>
+          {% endfor %}
+        </ul>
+      {% elif resultado and resultado.estado in ['recusada', 'espera'] %}
+        <ul class="regras">
+          {% for motivo in resultado.motivos %}
+          <li class="regra falha">
+            <span class="regra-icone" aria-hidden="true">✕</span>
+            <div><strong>Motivo</strong><span>{{ motivo }}</span></div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% if alternativas %}
+          <h3 class="subtitulo">Alternativas</h3>
+          <ul class="alternativas">
+            {% for a in alternativas %}
+            <li>
+              <span>{{ a.sala }} · {{ a.inicio | hora }}–{{ a.fim | hora }}</span>
+              <a class="btn-sec" href="{{ url_for('reservas.nova', dia=a.inicio.date().isoformat(), inicio=a.inicio.strftime('%H:%M'), fim=a.fim.strftime('%H:%M'), sala=a.sala_id, pessoas=valores.pessoas) }}">Usar este</a>
+            </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      {% else %}
+        <ul class="regras">
+          <li class="regra"><span class="regra-icone" aria-hidden="true">1</span><div><strong>Lotação</strong><span>O grupo cabe nos lugares da sala.</span></div></li>
+          <li class="regra"><span class="regra-icone" aria-hidden="true">2</span><div><strong>Horário da sala</strong><span>O pedido está dentro do horário de funcionamento.</span></div></li>
+          <li class="regra"><span class="regra-icone" aria-hidden="true">3</span><div><strong>Sem sobreposição</strong><span>Ninguém tem a sala nesse horário.</span></div></li>
+          <li class="regra"><span class="regra-icone" aria-hidden="true">4</span><div><strong>Limite diário</strong><span>No máximo {{ limite }} horas reservadas por dia.</span></div></li>
+        </ul>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

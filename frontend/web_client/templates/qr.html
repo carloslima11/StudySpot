@@ -1,0 +1,37 @@
+{% extends "app_base.html" %}
+{% block title %}QR de check-in · StudySpot{% endblock %}
+
+{% block pagina %}
+<meta http-equiv="refresh" content="90">
+<section class="cabeca">
+  <p class="eyebrow">{{ reserva.inicio | dia_curto }} · {{ reserva.inicio | hora }}—{{ reserva.fim | hora }}</p>
+  <h1 class="titulo">Check-in · {{ sala.nome }}</h1>
+  <p class="sub">Mostra este código ao leitor da porta da {{ sala.nome }}. O check-in abre 15 minutos antes do início.</p>
+</section>
+
+<div class="colunas">
+  <div class="bloco qr-bloco">
+    {% if check_in_feito %}
+      <div class="alert ok">O check-in desta reserva já foi feito.</div>
+    {% endif %}
+    {% if svg %}
+      <div class="qr" role="img" aria-label="QR code de check-in da {{ sala.nome }}">{{ svg }}</div>
+    {% else %}
+      <p class="nota">Instala o pacote <code>segno</code> para ver o QR. Código para o simulador:</p>
+      <code class="token">{{ token }}</code>
+    {% endif %}
+    <p class="nota">Válido até às {{ expira_em.strftime('%H:%M:%S') }}. A página renova-se sozinha.</p>
+  </div>
+  <div class="bloco-dir">
+    <div class="bloco">
+      <h2>Como funciona</h2>
+      <ol class="passos">
+        <li>Aproxima o telemóvel do leitor à porta da sala.</li>
+        <li>A luz fica verde quando o check-in é registado.</li>
+        <li>Sem check-in até 15 minutos depois do início, a sala passa para a lista de espera.</li>
+      </ol>
+      <a class="link" href="{{ url_for('reservas.minhas') }}">← Voltar às minhas reservas</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

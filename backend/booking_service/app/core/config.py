@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     tarefa_periodica_segundos: int = 60
 
     auth_modo_dev: bool = False
+    semear_salas: bool = False
 
 
 @lru_cache
