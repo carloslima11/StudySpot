@@ -1,9 +1,3 @@
-"""
-servico_reservas.py - Cola entre o csp.py, o Redis e a base de dados.
-
-Só dá pra testar pra semana quando trbalharea a serio
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
@@ -92,9 +86,9 @@ class ResultadoCriacao:
 
 def criar_reserva(repo: Repositorio, locks: Locks, *, utilizador_id: int,
                   chave_idempotencia: str, n_pessoas: int, inicio: datetime,
-                  fim: datetime, sala_id: Optional[int] = None, agora: datetime,
+                  fim: datetime, sala_id: Optional[int] = None, janela_fim: Optional[datetime] = None,
+                  agora: datetime,
                   cfg: ConfigCSP = ConfigCSP(), max_tentativas: int = 3) -> ResultadoCriacao:
-    # 1. Idempotência: um reenvio devolve o resultado anterior em vez de criar outra reserva(Salva pra krlh)
     existente = repo.reserva_por_chave(utilizador_id, chave_idempotencia)
     if existente is not None:
         return ResultadoCriacao("duplicada", reserva=existente)
@@ -105,10 +99,8 @@ def criar_reserva(repo: Repositorio, locks: Locks, *, utilizador_id: int,
                            sala_id=None if sala_id is None else str(sala_id))
     conflito = False
     for _ in range(max_tentativas):
-        # 2. Ler o estado atual (cada volta relê: o conflito significa que mudou).
         salas = [sala_para_csp(s) for s in repo.salas()]
         fixas = [reserva_para_csp(r) for r in repo.reservas_ativas_nos_dias({inicio.date()})]
-        # 3. Executar o CSP.
         res = motor.resolver([pedido], salas, fixas)
         if "novo" not in res.atribuicoes:
             conflito = False
@@ -134,7 +126,10 @@ def criar_reserva(repo: Repositorio, locks: Locks, *, utilizador_id: int,
         entra_em_espera = "novo" in res.lista_espera
     alternativas = motor.sugerir_alternativas(pedido, salas, fixas)
     if entra_em_espera:
-        repo.guardar_espera(utilizador_id, para_espera(pedido))
+        espera = para_espera(pedido)
+        if janela_fim is not None and janela_fim > fim:
+            espera = replace(espera, janela_fim=janela_fim)
+        repo.guardar_espera(utilizador_id, espera)
         return ResultadoCriacao("espera", motivos=motivos, alternativas=alternativas)
     return ResultadoCriacao("recusada", motivos=motivos, alternativas=alternativas)
 
@@ -158,7 +153,13 @@ def libertar_e_realocar(repo: Repositorio, locks: Locks, *, agora: datetime,
         return resumo
 
     resumo.libertadas = repo.libertar_sem_checkin(limite=agora - tolerancia, agora=agora)
+    return realocar_espera(repo, locks, agora=agora, cfg=cfg, resumo=resumo)
 
+
+def realocar_espera(repo: Repositorio, locks: Locks, *, agora: datetime,
+                    cfg: ConfigCSP = ConfigCSP(),
+                    resumo: Optional[ResumoLibertacao] = None) -> ResumoLibertacao:
+    resumo = resumo or ResumoLibertacao()
     minimo = _arredondar_para_cima(agora, cfg.slot_minutos)
     originais = {str(e.id): e for e in repo.espera_ativa()}
     pedidos: list[PedidoEspera] = []

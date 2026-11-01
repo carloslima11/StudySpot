@@ -1,5 +1,3 @@
-"""Testes do csp.py. Correr a partir de 05_artefactos/backend/booking_service:  python -m pytest -v"""
-
 from datetime import datetime, time
 
 import pytest
@@ -30,8 +28,6 @@ def pedido(id="P1", est="e1", n=2, ini=(10, 0), fim=(11, 0), criado=0, sala_id=N
 def reserva(id="R1", sala_id="S1", est="outro", ini=(10, 0), fim=(11, 0)) -> Reserva:
     return Reserva(id=id, sala_id=sala_id, estudante_id=est, inicio=dt(*ini), fim=dt(*fim))
 
-
-# ---------------------- restrições individuais ----------------------
 
 def test_pedido_valido():
     assert validar_pedido(pedido(), sala(), []).valido
@@ -83,13 +79,13 @@ def test_sobreposicao_noutra_sala_nao_conta():
 
 
 def test_limite_diario_excedido():
-    existentes = [reserva(est="e1", ini=(8, 0), fim=(11, 0))]  # 3h
-    r = validar_pedido(pedido(est="e1", ini=(14, 0), fim=(15, 30)), sala(), existentes)  # +1.5h
+    existentes = [reserva(est="e1", ini=(8, 0), fim=(11, 0))]
+    r = validar_pedido(pedido(est="e1", ini=(14, 0), fim=(15, 30)), sala(), existentes)
     assert not r.valido and "Limite diário" in r.motivos[0]
 
 
 def test_limite_diario_exato_e_aceite():
-    existentes = [reserva(est="e1", ini=(8, 0), fim=(11, 0))]  # 3h
+    existentes = [reserva(est="e1", ini=(8, 0), fim=(11, 0))]
     assert validar_pedido(pedido(est="e1", ini=(14, 0), fim=(15, 0)), sala(), existentes).valido
 
 
@@ -101,10 +97,8 @@ def test_limite_diario_nao_conta_outros_dias_nem_estudantes():
 
 def test_todos_os_motivos_sao_reportados():
     r = validar_pedido(pedido(n=9, ini=(6, 0), fim=(7, 0)), sala(), [])
-    assert len(r.motivos) == 2  # capacidade + janela
+    assert len(r.motivos) == 2
 
-
-# ---------------------- solver ----------------------
 
 def test_fifo_o_mais_antigo_fica_com_a_sala():
     res = resolver([pedido("P2", est="e2", criado=5), pedido("P1", est="e1", criado=1)],
@@ -140,17 +134,17 @@ def test_respeita_reservas_existentes():
 
 
 def test_limite_diario_aplica_se_entre_pedidos_do_mesmo_lote():
-    p1 = pedido("P1", est="e1", ini=(8, 0), fim=(11, 0), criado=1)   # 3h
-    p2 = pedido("P2", est="e1", ini=(13, 0), fim=(15, 0), criado=2)  # +2h = 5h > 4h
+    p1 = pedido("P1", est="e1", ini=(8, 0), fim=(11, 0), criado=1)
+    p2 = pedido("P2", est="e1", ini=(13, 0), fim=(15, 0), criado=2)
     res = resolver([p1, p2], [sala()])
     assert list(res.atribuicoes) == ["P1"]
     assert "Limite diário" in res.rejeitados["P2"][0]
 
 
 def _cenario_fifo_vs_maximizar():
-    p1 = pedido("P1", est="e1", ini=(8, 0), fim=(11, 0), criado=1)   # 3h
-    p2 = pedido("P2", est="e1", ini=(12, 0), fim=(14, 0), criado=2)  # 2h
-    p3 = pedido("P3", est="e1", ini=(15, 0), fim=(17, 0), criado=3)  # 2h
+    p1 = pedido("P1", est="e1", ini=(8, 0), fim=(11, 0), criado=1)
+    p2 = pedido("P2", est="e1", ini=(12, 0), fim=(14, 0), criado=2)
+    p3 = pedido("P3", est="e1", ini=(15, 0), fim=(17, 0), criado=3)
     return [p1, p2, p3], [sala()]
 
 
@@ -181,8 +175,6 @@ def test_lista_vazia():
     assert resolver([], [sala()]).atribuicoes == {}
 
 
-# ---------------------- alinhamento com os diagramas ----------------------
-
 def test_sala_inativa_e_rejeitada():
     r = validar_pedido(pedido(), sala(ativa=False), [])
     assert not r.valido and "não está disponível" in r.motivos[0]
@@ -210,9 +202,9 @@ def test_limite_diario_nao_vai_para_lista_de_espera():
 
 def test_reexecucao_apos_libertar_reserva_realoca_a_lista_de_espera():
     espera = [pedido("P2", est="e2", criado=2), pedido("P3", est="e3", criado=3)]
-    antes = resolver(espera, [sala()], [reserva()])               # sala ocupada
+    antes = resolver(espera, [sala()], [reserva()])
     assert antes.atribuicoes == {} and antes.lista_espera == ["P2", "P3"]
-    depois = resolver(espera, [sala()], [])                       # reserva libertada
+    depois = resolver(espera, [sala()], [])
     assert depois.atribuicoes == {"P2": "S1"} and depois.lista_espera == ["P3"]
 
 
@@ -226,7 +218,7 @@ def test_alternativas_outras_salas_no_mesmo_horario():
 
 
 def test_alternativas_horarios_proximos_na_mesma_sala():
-    alt = sugerir_alternativas(pedido(), [sala("S1")], [reserva()])  # S1 ocupada 10-11
+    alt = sugerir_alternativas(pedido(), [sala("S1")], [reserva()])
     assert alt.salas == []
     assert alt.horarios[:2] == [("S1", dt(9), dt(10)), ("S1", dt(11), dt(12))]
 
@@ -242,8 +234,6 @@ def test_motor_csp_fachada_equivale_as_funcoes():
     assert motor.resolver(pedidos, [sala()], []).atribuicoes == resolver(pedidos, [sala()]).atribuicoes
     assert motor.validar(pedido(), sala(), []).valido
 
-
-# ---------------------- lista de espera com janela + duração ----------------------
 
 def espera(id="W1", est="e1", n=2, ini=(10, 0), fim=(13, 0), dur=60, criado=0,
            sala_id=None) -> PedidoEspera:
@@ -270,7 +260,7 @@ def test_espera_sem_hora_livre_continua_em_lista_de_espera():
 
 
 def test_espera_duracao_maior_que_a_janela_e_rejeitada_de_vez():
-    res = resolver([espera(dur=240)], [sala()])  # janela de 3h, pede 4h
+    res = resolver([espera(dur=240)], [sala()])
     assert res.lista_espera == [] and "não cabe" in res.rejeitados["W1"][0]
 
 
@@ -280,7 +270,7 @@ def test_espera_respeita_o_horario_de_funcionamento_da_sala():
 
 
 def test_espera_respeita_o_limite_diario():
-    existentes = [reserva(est="e1", ini=(8, 0), fim=(11, 30))]  # 3.5h
+    existentes = [reserva(est="e1", ini=(8, 0), fim=(11, 30))]
     res = resolver([espera(est="e1", ini=(14, 0), fim=(16, 0))], [sala()], existentes)
     assert res.atribuicoes == {} and res.lista_espera == []
     assert "Limite diário" in res.rejeitados["W1"][0]
@@ -314,13 +304,11 @@ def test_para_espera_converte_pedido_recusado():
 
 def test_recusado_e_reavaliado_como_espera_apos_libertar_a_sala():
     recusado = pedido("P9", est="e9", ini=(10, 0), fim=(11, 0))
-    res1 = resolver([recusado], [sala()], [reserva()])               # sala ocupada
+    res1 = resolver([recusado], [sala()], [reserva()])
     assert res1.lista_espera == ["P9"]
-    res2 = resolver([para_espera(recusado)], [sala()], [])           # reserva libertada
+    res2 = resolver([para_espera(recusado)], [sala()], [])
     assert res2.horarios["P9"] == (dt(10), dt(11))
 
-
-# ---------------------- API simples do enunciado ----------------------
 
 ABRE, FECHA = time(8, 0), time(22, 0)
 SALAS = {"A1": 4, "B2": 8, "C3": 12}
@@ -338,23 +326,23 @@ def test_validar_capacidade_primitiva():
 
 def test_validar_horario_primitiva():
     assert validar_horario(time(10), time(11), ABRE, FECHA)
-    assert validar_horario(time(8), time(22), ABRE, FECHA)       # extremos permitidos
+    assert validar_horario(time(8), time(22), ABRE, FECHA)
     assert not validar_horario(time(7, 30), time(9), ABRE, FECHA)
     assert not validar_horario(time(21), time(22, 30), ABRE, FECHA)
-    assert not validar_horario(time(11), time(10), ABRE, FECHA)  # fim antes do início
-    assert not validar_horario(time(10), time(10), ABRE, FECHA)  # duração zero
+    assert not validar_horario(time(11), time(10), ABRE, FECHA)
+    assert not validar_horario(time(10), time(10), ABRE, FECHA)
 
 
 def test_validar_limite_estudante_primitiva():
     assert validar_limite_estudante("e1", 4.0, {})
-    assert validar_limite_estudante("e1", 1.0, {"e1": 3.0})      # exatamente 4h
+    assert validar_limite_estudante("e1", 1.0, {"e1": 3.0})
     assert not validar_limite_estudante("e1", 1.5, {"e1": 3.0})
-    assert validar_limite_estudante("e1", 4.0, {"outro": 4.0})   # outros estudantes não contam
+    assert validar_limite_estudante("e1", 4.0, {"outro": 4.0})
     assert not validar_limite_estudante("e1", 3.0, {"e1": 1.0}, limite_diario=3.0)
 
 
 def test_limite_estudante_tolera_erros_de_virgula_flutuante():
-    assert validar_limite_estudante("e1", 0.3, {"e1": 3.7})      # 3.7 + 0.3 = 4.000000000000001
+    assert validar_limite_estudante("e1", 0.3, {"e1": 3.7})
 
 
 def test_reserva_valida_devolve_mensagem_com_os_dados():
@@ -400,7 +388,6 @@ def test_reserva_com_sala_inexistente_ou_campos_em_falta():
 
 
 def test_a_primeira_violacao_e_a_reportada():
-    # lotação E horário violados: a ordem (capacidade, horário, limite) decide
     ok, msg = validar_reserva_csp(req(n=9, ini=(6, 0), fim=(7, 0)), SALAS, ABRE, FECHA, {})
     assert not ok and "comporta" in msg
 
@@ -423,7 +410,6 @@ def test_alternativa_reserva_encostada_nao_bloqueia_a_sala():
 
 
 def test_alternativa_so_ajuda_quando_falha_por_lotacao():
-    # cabe na sala pedida mas está fora de horas: outra sala não resolve
     assert sugerir_sala_alternativa(req(n=2, ini=(7, 0), fim=(8, 0)), SALAS, ABRE, FECHA, {}) is None
 
 
@@ -432,6 +418,5 @@ def test_alternativa_inexistente_devolve_none():
 
 
 def test_alternativa_respeita_o_limite_do_estudante():
-    # mesmo havendo sala maior livre, o limite diário impede qualquer sala
     assert sugerir_sala_alternativa(req(est="e1", n=6, ini=(14, 0), fim=(16, 0)),
                                     SALAS, ABRE, FECHA, {"e1": 3.0}) is None

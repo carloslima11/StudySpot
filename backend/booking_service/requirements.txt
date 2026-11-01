@@ -4,3 +4,7 @@ uvicorn==0.54.0
 SQLAlchemy==2.1.6
 psycopg[binary]==3.3.6
 redis==8.1.0
+
+pydantic-settings==2.16.1
+paho-mqtt==2.1.0
+tzdata==2025.2

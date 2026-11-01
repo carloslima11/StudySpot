@@ -1,9 +1,7 @@
-# permite validar a TOTP(password temporária de uso único) usando uma expressão regular
+
 import re
-from functools import lru_cache  # guarda em memória o resultado de "get_settings"
-# permite validar um campo da configuração
+from functools import lru_cache
 from pydantic import SecretStr, field_validator
-# obrigam o Pydantic a carregar e valida configurações
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,7 +12,6 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # o "SecretStr" serve para guardar info sensível
     database_url: SecretStr
     redis_url: SecretStr
     totp_encryption_key: SecretStr

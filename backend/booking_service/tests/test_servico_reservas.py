@@ -1,11 +1,8 @@
-"""Testes do servico_reservas.py com uma BD e locks em memória.
-Correr a partir de 05_artefactos/backend/booking_service:  python -m pytest -v"""
-
 from contextlib import contextmanager
-from datetime import datetime, time, timedelta
+from datetime import datetime, time
 from types import SimpleNamespace
 
-import pytest  # noqa: F401  (o ficheiro também corre com o executor mínimo)
+import pytest
 
 from app.servico_reservas import (ESTADOS_ATIVOS, ConflitoSlot, LockIndisponivel,
                               criar_reserva, libertar_e_realocar)
@@ -32,13 +29,12 @@ class LocksFake:
 
 
 class RepoFake:
-    """BD em memória que reproduz o UNIQUE (sala_id, slot_inicio)."""
 
     def __init__(self, salas, tem_hook=None):
         self._salas = salas
         self.reservas, self.espera, self.slots = [], [], set()
         self._id = 100
-        self.antes_de_inserir = tem_hook  # simula outro pedido a passar à frente
+        self.antes_de_inserir = tem_hook
 
     def _novo_id(self):
         self._id += 1
@@ -59,7 +55,6 @@ class RepoFake:
         self.espera.append(e)
         return e
 
-    # --- contrato Repositorio ---
     def salas(self):
         return self._salas
 
@@ -117,8 +112,6 @@ def criar(repo, locks=None, **kw):
     return criar_reserva(repo, locks or LocksFake(), **base)
 
 
-# ---------------------- diagrama 3: criar reserva ----------------------
-
 def test_confirma_e_grava_reserva_com_slots_e_locks_ordenados():
     repo, locks = RepoFake([sala(1)]), LocksFake()
     r = criar(repo, locks, inicio=dt(10), fim=dt(11, 30))
@@ -153,7 +146,7 @@ def test_pedido_impossivel_e_recusado_e_nao_entra_em_espera():
 def test_corrida_conflito_de_slot_e_decidido_de_novo_noutra_sala():
     def outro_passa_a_frente(repo):
         repo.antes_de_inserir = None
-        repo.adicionar(9, 1, dt(10), dt(11))       # toma a sala 1 antes do nosso INSERT
+        repo.adicionar(9, 1, dt(10), dt(11))
     repo = RepoFake([sala(1), sala(2)], tem_hook=outro_passa_a_frente)
     r = criar(repo)
     assert r.estado == "confirmada" and r.reserva.sala_id == 2
@@ -174,14 +167,12 @@ def test_lock_indisponivel_falha_segura_sem_gravar():
     assert repo.reservas == [] and repo.slots == set()
 
 
-# ---------------------- diagrama 4: libertar e realocar ----------------------
-
 AGORA = dt(10, 20)
 
 
 def cenario_fantasma():
     repo = RepoFake([sala(1)])
-    fantasma = repo.adicionar(1, 1, dt(10), dt(11))            # sem check-in
+    fantasma = repo.adicionar(1, 1, dt(10), dt(11))
     e = repo.adicionar_espera(2, dt(10), dt(12), 60, datetime(2026, 10, 19, 9))
     return repo, fantasma, e
 
@@ -192,7 +183,6 @@ def test_liberta_fantasma_e_realoca_a_lista_de_espera():
     assert r.libertadas == [fantasma.id] and fantasma.estado == "libertada"
     assert len(r.realocadas) == 1
     nova = r.realocadas[0][1]
-    # nunca atribui hora no passado: 10:20 arredonda para 10:30
     assert (nova.sala_id, nova.inicio, nova.fim) == (1, dt(10, 30), dt(11, 30))
     assert e.estado == "atendida"
 
@@ -200,7 +190,7 @@ def test_liberta_fantasma_e_realoca_a_lista_de_espera():
 def test_reserva_com_checkin_nao_e_libertada():
     repo = RepoFake([sala(1)])
     com_checkin = repo.adicionar(1, 1, dt(10), dt(11), check_in=dt(10, 2))
-    e = repo.adicionar_espera(2, dt(10), dt(11), 30, datetime(2026, 10, 19, 9))  # janela toda ocupada
+    e = repo.adicionar_espera(2, dt(10), dt(11), 30, datetime(2026, 10, 19, 9))
     r = libertar_e_realocar(repo, LocksFake(), agora=AGORA)
     assert r.libertadas == [] and com_checkin.estado == "confirmada"
     assert r.realocadas == [] and e.estado == "ativa"
@@ -223,7 +213,7 @@ def test_broker_em_baixo_nao_liberta_nada():
 def test_espera_com_janela_ultrapassada_expira():
     repo = RepoFake([sala(1)])
     e = repo.adicionar_espera(2, dt(10), dt(11), 30, datetime(2026, 10, 19, 9))
-    r = libertar_e_realocar(repo, LocksFake(), agora=dt(10, 50))   # 11:00 + 30 min > 11:00
+    r = libertar_e_realocar(repo, LocksFake(), agora=dt(10, 50))
     assert r.expiradas == [e.id] and e.estado == "expirada" and r.realocadas == []
 
 
@@ -253,3 +243,14 @@ def test_realocacao_por_ordem_de_chegada():
     mais_nova = repo.adicionar_espera(3, dt(10), dt(11, 30), 60, datetime(2026, 10, 19, 9, 5))
     libertar_e_realocar(repo, LocksFake(), agora=dt(10, 20))
     assert mais_velha.estado == "atendida" and mais_nova.estado == "ativa"
+
+
+def test_janela_fim_alarga_a_janela_da_lista_de_espera():
+    repo = RepoFake([sala(1)])
+    repo.adicionar(9, 1, dt(10), dt(11))
+    res = criar_reserva(repo, LocksFake(), utilizador_id=1, chave_idempotencia="k-espera",
+                        n_pessoas=2, inicio=dt(10), fim=dt(11), janela_fim=dt(14),
+                        agora=dt(9), cfg=CFG)
+    assert res.estado == "espera"
+    assert (repo.espera[0].janela_inicio, repo.espera[0].janela_fim) == (dt(10), dt(14))
+    assert repo.espera[0].duracao == 60

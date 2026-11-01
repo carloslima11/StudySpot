@@ -1,16 +1,3 @@
-"""
-csp.py - Componente de Inteligência Artificial do projeto.
-Coloquei de maniera a que ficasse pronto para a integração vom a base de dados.
-
-Isto modela a atribuição de reservas como um Problema de Satisfação de Restrições
-(CSP) <V, D, C>:
-
-    V (variáveis)  : pedidos de reserva (novos ou em lista de espera)
-    D (domínios)   : as salas de estudo (cada pedido recebe uma sala ou fica sem poratnto fica em espera)
-    C (restrições) : estrutura, capacidade, janela de funcionamento,
-                     sobreposição e limite diário por estudante
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
@@ -18,7 +5,6 @@ from datetime import datetime, time, timedelta
 from itertools import chain
 from typing import Iterable, Optional
 
-# Configuração e modelos de dados
 
 @dataclass(frozen=True)
 class ConfigCSP:
@@ -109,8 +95,8 @@ def para_espera(p: PedidoReserva) -> PedidoEspera:
         criado_em=p.criado_em, sala_id=p.sala_id)
 
 
-Pedido = PedidoReserva | PedidoEspera   # o que o solver aceita como variável
-Opcao = tuple[Sala, PedidoReserva]      # um valor do domínio: sala + horário concreto
+Pedido = PedidoReserva | PedidoEspera
+Opcao = tuple[Sala, PedidoReserva]
 
 
 @dataclass
@@ -128,9 +114,7 @@ class Resolucao:
 
 @dataclass
 class Alternativas:
-    """Sugestões quando um pedido é recusado (diagrama: 'Recusa com motivo e alternativas')."""
-    salas: list[str] = field(default_factory=list)  # outras salas livres no MESMO horário
-    # (sala_id, inicio, fim): horários próximos com a mesma duração
+    salas: list[str] = field(default_factory=list)
     horarios: list[tuple[str, datetime, datetime]] = field(default_factory=list)
 
 
@@ -216,7 +200,6 @@ def validar_pedido(p: PedidoReserva, sala: Sala, reservas: Iterable[Reserva],
     motivos = [m for m in verificacoes if m is not None]
     return Resultado(valido=not motivos, motivos=motivos)
 
-# Solver
 
 def _dominio(p: Pedido, salas: list[Sala], cfg: ConfigCSP) -> list[Opcao]:
 
@@ -253,14 +236,13 @@ def _tentativa(p: PedidoReserva, sala: Sala) -> Reserva:
 
 def _motivos_rejeicao(p: Pedido, salas: list[Sala], reservas: list[Reserva],
                       cfg: ConfigCSP, opcoes: list[Opcao]) -> list[str]:
-    """Explica porque um pedido ficou sem sala: motivos da sala com menos violações."""
     candidatas = [s for s in salas if p.sala_id is None or s.id == p.sala_id]
     if not candidatas:
         return ["Não existe nenhuma sala elegível para este pedido."]
     if isinstance(p, PedidoEspera):
         if not p.inicios_possiveis(cfg):
             return ["A duração pedida não cabe na janela indicada (ou é inválida)."]
-        if opcoes:  # válido em si: falta vaga ou há excesso de horas no dia
+        if opcoes:
             limites = [verificar_limite_diario(c, reservas, cfg) for _, c in opcoes]
             if all(limites):
                 return [limites[0]]
@@ -295,10 +277,7 @@ def resolver(pedidos: Iterable[Pedido], salas: Iterable[Sala],
     finais = existentes + [_tentativa(c, s) for s, c in atribuicoes.values()]
     for p in ordem:
         if p.id not in atribuicoes:
-            # Validar contra as reservas finais SEM contar uma tentativa do próprio pedido
             resolucao.rejeitados[p.id] = _motivos_rejeicao(p, salas, finais, cfg, dominios[p.id])
-            # Só espera quem é válido em si (domínio não vazio) e não esbarra no
-            # limite diário em todas as opções: o que falta é ficar uma vaga livre.
             if any(verificar_limite_diario(c, finais, cfg) is None for _, c in dominios[p.id]):
                 resolucao.lista_espera.append(p.id)
     return resolucao
@@ -323,21 +302,20 @@ def _resolver_maximizar(ordem, dominios, existentes, cfg) -> dict:
 
     def bt(i: int) -> None:
         nonlocal melhor
-        # Poda: mesmo atribuindo todos os restantes, não superaria o melhor atual.
         if len(atual) + (len(ordem) - i) <= len(melhor):
             return
         if i == len(ordem):
             melhor = dict(atual)
             return
         p = ordem[i]
-        for sala, c in dominios[p.id]:                    # 1.º tenta atribuir
+        for sala, c in dominios[p.id]:
             if _compativel(c, sala, chain(existentes, tentativas), cfg):
                 atual[p.id] = (sala, c)
                 tentativas.append(_tentativa(c, sala))
                 bt(i + 1)
                 tentativas.pop()
                 del atual[p.id]
-        bt(i + 1)                                         # 2.º deixa sem sala
+        bt(i + 1)
 
     bt(0)
     return melhor
@@ -364,7 +342,7 @@ def sugerir_alternativas(pedido: PedidoReserva, salas: Iterable[Sala],
     fixas = list(reservas_fixas)
     resultado = Alternativas()
     if verificar_estrutura(pedido, cfg):
-        return resultado  # sem duração/horário válidos não há o que comparar
+        return resultado
 
     for s in sorted(salas, key=lambda s: (s.capacidade, s.id)):
         if s.id != pedido.sala_id and validar_pedido(pedido, s, fixas, cfg).valido:
@@ -379,7 +357,7 @@ def sugerir_alternativas(pedido: PedidoReserva, salas: Iterable[Sala],
         ini = datetime.combine(pedido.inicio.date(), s.abertura)
         limite = datetime.combine(pedido.inicio.date(), s.fecho)
         while ini + duracao <= limite:
-            if ini != pedido.inicio:  # o horário pedido já está coberto por `salas`
+            if ini != pedido.inicio:
                 alt = replace(pedido, inicio=ini, fim=ini + duracao)
                 if validar_pedido(alt, s, fixas, cfg).valido:
                     candidatos.append((abs(ini - pedido.inicio), s.capacidade,
@@ -391,11 +369,6 @@ def sugerir_alternativas(pedido: PedidoReserva, salas: Iterable[Sala],
 
 
 class MotorCSP:
-    """Fachada que espelha a classe MotorCSP do diagrama de classes.
-
-    Guarda a configuração e expõe as operações do módulo, para os serviços
-    FastAPI poderem fazer `MotorCSP(cfg).resolver(pedidos, salas, reservas_fixas)`.
-    """
 
     def __init__(self, cfg: ConfigCSP = ConfigCSP()) -> None:
         self.cfg = cfg
@@ -413,34 +386,21 @@ class MotorCSP:
         return sugerir_alternativas(pedido, salas, reservas_fixas, self.cfg)
 
 
-_EPSILON = 1e-9  # tolerância para somas de horas em vírgula flutuante
+_EPSILON = 1e-9
 
 
 def validar_capacidade(num_pessoas: int, capacidade_sala: int) -> bool:
-    """Restrição de lotação: True se a sala comporta o grupo.
-
-    Um grupo com exatamente a capacidade da sala é aceite.
-    """
     return num_pessoas <= capacidade_sala
 
 
 def validar_horario(inicio: time, fim: time,
                     horario_abertura: time, horario_fecho: time) -> bool:
-    """Restrição de horário: True se inicio < fim e o intervalo cabe no horário operacional.
-
-    "Contido" inclui os extremos: começar à hora de abertura ou acabar à hora de
-    fecho é válido. Trabalha com horas do mesmo dia.
-    """
     return inicio < fim and horario_abertura <= inicio and fim <= horario_fecho
 
 
 def validar_limite_estudante(estudante_id: str, horas_solicitadas: float,
                              historico_dia: dict[str, float],
                              limite_diario: float = 4.0) -> bool:
-    """Restrição do estudante: True se (horas já reservadas hoje + pedidas) <= limite.
-
-    `historico_dia` mapeia estudante_id -> horas já reservadas nesse dia.
-    """
     ja_reservadas = historico_dia.get(estudante_id, 0.0)
     return ja_reservadas + horas_solicitadas <= limite_diario + _EPSILON
 
@@ -449,12 +409,6 @@ def validar_reserva_csp(reserva: dict, salas_info: dict[str, int],
                         horario_abertura: time, horario_fecho: time,
                         historico_dia: dict[str, float],
                         limite_diario: float = 4.0) -> tuple[bool, str]:
-    """Valida um pedido contra todas as restrições, por ordem, e explica o resultado.
-
-    `reserva` é um dicionário com as chaves: estudante_id, sala_id, num_pessoas,
-    inicio e fim (estes dois, `datetime`). `salas_info` mapeia sala_id -> capacidade.
-    Devolve (True, "Reserva válida ...") ou (False, motivo da PRIMEIRA violação).
-    """
     campos = ("estudante_id", "sala_id", "num_pessoas", "inicio", "fim")
     em_falta = [c for c in campos if c not in reserva]
     if em_falta:
@@ -475,7 +429,7 @@ def validar_reserva_csp(reserva: dict, salas_info: dict[str, int],
     if inicio.date() != fim.date():
         return False, "A reserva tem de começar e terminar no mesmo dia."
 
-    horas = (fim - inicio).total_seconds() / 3600  # duração em horas (float)
+    horas = (fim - inicio).total_seconds() / 3600
 
     capacidade = salas_info[sala_id]
     if not validar_capacidade(num_pessoas, capacidade):
@@ -502,7 +456,7 @@ def sugerir_sala_alternativa(reserva: dict, salas_info: dict[str, int],
     if sala_pedida not in salas_info:
         return None
     if validar_capacidade(reserva["num_pessoas"], salas_info[sala_pedida]):
-        return None  # a lotação não é o problema: trocar de sala não ajuda
+        return None
 
     existentes = list(reservas_existentes)
     candidatas: list[tuple[int, str]] = []
@@ -517,9 +471,6 @@ def sugerir_sala_alternativa(reserva: dict, salas_info: dict[str, int],
         if valido and not ocupada:
             candidatas.append((capacidade, sala_id))
     return min(candidatas)[1] if candidatas else None
-
-
-# Demonstração monstra
 
 
 def _demonstracao() -> None:

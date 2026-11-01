@@ -1,4 +1,4 @@
-services:
+  services:
   postgres:
     image: postgres:18
     restart: unless-stopped
@@ -88,6 +88,20 @@ services:
       booking2:
         condition: service_healthy
 
+  mosquitto:
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquittodata:/mosquitto/data
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -p 1883 -t '$$SYS/#' -C 1 -W 3 || exit 1"]
+      interval: "5s"
+      timeout: "5s"
+      retries: 10
+    ports:
+      - "127.0.0.1:11883:1883"
+
   booking1:
     build: ./backend/booking_service
     restart: unless-stopped
@@ -108,6 +122,12 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379/0
+      MQTT_ATIVO: ${MQTT_ATIVO:-false}
+      MQTT_HOST: mosquitto
+      MQTT_PORT: "1883"
+      CHECKIN_SEGREDO: ${CHECKIN_SEGREDO:-}
+      TAREFA_PERIODICA_ATIVA: ${TAREFA_PERIODICA_ATIVA:-false}
+      AUTH_MODO_DEV: ${AUTH_MODO_DEV:-false}
 
   booking2:
     build: ./backend/booking_service
@@ -129,6 +149,13 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379/0
+      MQTT_ATIVO: ${MQTT_ATIVO:-false}
+      MQTT_HOST: mosquitto
+      MQTT_PORT: "1883"
+      CHECKIN_SEGREDO: ${CHECKIN_SEGREDO:-}
+      TAREFA_PERIODICA_ATIVA: ${TAREFA_PERIODICA_ATIVA:-false}
+      AUTH_MODO_DEV: ${AUTH_MODO_DEV:-false}
 
 volumes:
   pgdata:
+  mosquittodata:
