@@ -210,7 +210,9 @@ def test_lista_de_espera_ver_e_sair(cliente):
 
 def test_sem_sessao_e_401():
     app.dependency_overrides.clear()
-    app.dependency_overrides[get_settings] = lambda: SimpleNamespace(auth_modo_dev=False)
+    app.dependency_overrides[get_settings] = lambda: SimpleNamespace(
+        auth_modo_dev=False)
+    app.dependency_overrides[get_repo] = lambda: RepoFalso()
     try:
         assert TestClient(app).get("/api/salas").status_code == 401
     finally:
