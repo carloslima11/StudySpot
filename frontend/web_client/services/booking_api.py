@@ -29,14 +29,15 @@ class Resposta:
             if isinstance(d, str):
                 return d
             if isinstance(d, list):
-                msgs = [str(e.get("msg", "")).removeprefix("Value error, ") for e in d if isinstance(e, dict)]
+                msgs = [str(e.get("msg", "")).removeprefix("Value error, ")
+                        for e in d if isinstance(e, dict)]
                 if msgs:
                     return " ".join(msgs)
         return "O pedido não foi aceite pelo serviço de reservas."
 
 
 class BookingAPI:
-    def __init__(self, base_url: str, token_sessao: Optional[str] = None, timeout: float = 5.0) -> None:
+    def __init__(self, base_url: str, token_sessao: Optional[str] = None, timeout: float = 12.0) -> None:
         self.base = base_url.rstrip("/")
         self.cabecalhos = (
             {} if token_sessao is None else {"Authorization": f"Bearer {token_sessao}"}
@@ -49,9 +50,11 @@ class BookingAPI:
             r = requests.request(metodo, self.base + caminho, headers=cabecalhos,
                                  timeout=self.timeout, **kwargs)
         except requests.RequestException as exc:
-            raise ServicoIndisponivel("O serviço de reservas não está disponível.") from exc
+            raise ServicoIndisponivel(
+                "O serviço de reservas não está disponível.") from exc
         if r.status_code in (502, 504):
-            raise ServicoIndisponivel("O serviço de reservas não está disponível.")
+            raise ServicoIndisponivel(
+                "O serviço de reservas não está disponível.")
         try:
             dados = r.json()
         except ValueError:
