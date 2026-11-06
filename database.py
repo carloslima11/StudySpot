@@ -7,11 +7,9 @@ load_dotenv()
 def get_db_connection():
     try:
         with psycopg.connect(
-            host=os.getenv("DB_HOST"),
-            port=os.getenv("DB_PORT"),
-            dbname=os.getenv("DB_NAME"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD"),
+            dbname=os.getenv("POSTGRES_DB"),
+            user=os.getenv("POSTGRES_USER"),
+            password=os.getenv("POSTGRES_PASSWORD"),
             connect_timeout=5
         ) as conn:
             with conn.cursor() as cur:
