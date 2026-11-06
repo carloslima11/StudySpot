@@ -1,5 +1,15 @@
 from datetime import datetime
-from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, String, Text, func
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    LargeBinary,
+    String,
+    Text,
+    func,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -34,4 +44,41 @@ class Utilizador(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
+    )
+
+
+class SegredoTOTP(Base):
+    __tablename__ = "segredos_totp"
+
+    utilizador_id: Mapped[int] = mapped_column(
+        ForeignKey("utilizadores.id"),
+        primary_key=True,
+    )
+    segredo_cifrado: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    nonce: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    confirmado: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+    )
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class CodigoRecuperacao(Base):
+    __tablename__ = "codigos_recuperacao"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    utilizador_id: Mapped[int] = mapped_column(
+        ForeignKey("utilizadores.id"),
+        nullable=False,
+    )
+    hash: Mapped[str] = mapped_column(Text, nullable=False)
+    usado_em: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )

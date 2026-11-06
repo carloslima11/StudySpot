@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Criar conta · StudySpot{% endblock %}
+
+{% block content %}
+<main class="split">
+  {% include "_hero.html" %}
+
+  <section class="panel">
+    <div class="card">
+      <div class="step">
+        <span>Passo 1 de 2</span>
+        <div class="step-bars"><i class="on"></i><i></i></div>
+      </div>
+
+      <p class="eyebrow">NOVA CONTA</p>
+      <h2 class="card-title">Criar conta</h2>
+      <p class="card-sub">Usa o teu e-mail académico. A seguir ligamos a conta à app autenticadora.</p>
+
+      {% with mensagens = get_flashed_messages(with_categories=true) %}
+        {% for categoria, msg in mensagens %}
+          <div class="alert {{ categoria }}">{{ msg }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <form method="POST" action="{{ url_for('conta.registo') }}">
+        <label for="email">E-mail</label>
+        <input type="email" id="email" name="email" value="{{ email }}" placeholder="nome@universidade.pt" autocomplete="email" required>
+
+        <label for="password">Palavra-passe</label>
+        <input type="password" id="password" name="password" minlength="10" placeholder="Pelo menos 10 caracteres" autocomplete="new-password" required>
+
+        <label for="password2">Repetir palavra-passe</label>
+        <input type="password" id="password2" name="password2" minlength="10" placeholder="Escreve-a outra vez" autocomplete="new-password" required>
+
+        <button type="submit" class="btn">Continuar <span>→</span></button>
+      </form>
+
+      <p class="back">Já tens conta? <a href="{{ url_for('auth.login') }}" class="link">Entrar</a></p>
+    </div>
+  </section>
+</main>
+{% endblock %}

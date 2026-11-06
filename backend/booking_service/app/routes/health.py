@@ -6,7 +6,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from app.cache import get_redis
-from app.db import get_engine
+from app.bd import get_engine
 from fastapi import APIRouter
 
 router = APIRouter(prefix="/health", tags=["health"])

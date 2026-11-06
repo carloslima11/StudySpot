@@ -10,7 +10,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.pool import StaticPool
 from app.cache import get_redis
-from app.db import get_engine
+from app.bd import get_engine
 from app.main import app
 from app.routes.health import MENSAGEM_INDISPONIVEL
 import pytest

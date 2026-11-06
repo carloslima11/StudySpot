@@ -8,7 +8,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
-from app.csp import ConfigCSP, slots_ocupados
+from app.csp import ConfigCSP, PedidoEspera, slots_ocupados
 from app.models import Base, ReservaSlot, Sala
 from app.repo_sql import RepositorioSQL
 from app.servico_reservas import ConflitoSlot
@@ -34,6 +34,30 @@ def inserir(repo, utilizador=1, ini=dt(10), fim=dt(11), chave="k-0001"):
     return repo.inserir_reserva(
         utilizador_id=utilizador, sala_id=1, inicio=ini, fim=fim, n_pessoas=2,
         chave_idempotencia=chave, slots=slots_ocupados(ini, fim, CFG))
+
+
+def espera(repo, utilizador=1, ini=dt(9), fim=dt(13)):
+    return repo.guardar_espera(utilizador, PedidoEspera(
+        id="", estudante_id=str(utilizador), participantes=2, janela_inicio=ini,
+        janela_fim=fim, duracao_minutos=60, criado_em=dt(8)))
+
+
+def test_esperas_do_utilizador_e_sair():
+    repo = novo_repo()
+    minha, outra = espera(repo), espera(repo, utilizador=2)
+    assert [e.id for e in repo.esperas_do_utilizador(1)] == [minha.id]
+    assert repo.sair_espera(2, minha.id) is None
+    assert repo.sair_espera(1, minha.id).id == minha.id
+    assert repo.esperas_do_utilizador(1) == []
+    assert [e.id for e in repo.espera_ativa()] == [outra.id]
+
+
+def test_nao_sai_de_espera_ja_atendida():
+    repo = novo_repo()
+    e = espera(repo)
+    repo.marcar_espera_atendida(e.id, None)
+    assert repo.sair_espera(1, e.id).estado == "atendida"
+    assert len(repo.esperas_do_utilizador(1)) == 1
 
 
 def test_inserir_e_ler():

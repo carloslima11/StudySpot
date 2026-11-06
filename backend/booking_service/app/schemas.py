@@ -60,6 +60,13 @@ class SalaOut(BaseModel):
     ativa: bool
 
 
+class OcupacaoOut(BaseModel):
+    sala_id: int
+    inicio: datetime
+    fim: datetime
+    minha: bool
+
+
 class HorarioAlternativo(BaseModel):
     sala_id: int
     inicio: datetime
@@ -69,6 +76,18 @@ class HorarioAlternativo(BaseModel):
 class AlternativasOut(BaseModel):
     salas: list[int] = []
     horarios: list[HorarioAlternativo] = []
+
+
+class EsperaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    n_pessoas: int
+    janela_inicio: datetime
+    janela_fim: datetime
+    duracao: int
+    estado: str
+    criado_em: datetime
 
 
 class QrOut(BaseModel):

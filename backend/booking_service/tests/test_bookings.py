@@ -66,6 +66,17 @@ class RepoFalso:
     def espera_ativa(self):
         return []
 
+    def esperas_do_utilizador(self, uid):
+        return [e for e in self.espera if getattr(e, "utilizador_id", None) == uid]
+
+    def sair_espera(self, uid, espera_id):
+        e = next((e for e in self.espera if getattr(e, "id", None) == espera_id), None)
+        if e is None or e.utilizador_id != uid:
+            return None
+        if e.estado == "ativa":
+            self.espera.remove(e)
+        return e
+
     def cancelar_reserva(self, uid, reserva_id, agora):
         r = next((r for r in self.reservas if r.id == reserva_id), None)
         if r is None or r.utilizador_id != uid:
@@ -171,9 +182,37 @@ def test_qr_sem_segredo_configurado_e_503(cliente):
     assert c.get(f"/api/reservas/{r.json()['reserva']['id']}/qr").status_code == 503
 
 
+def test_ocupacao_do_dia_marca_as_minhas(cliente):
+    c, repo, _ = cliente
+    c.post("/api/reservas", json=corpo(), headers={"Idempotency-Key": "chave-0009"})
+    repo.inserir_reserva(utilizador_id=99, sala_id=1, inicio=datetime(2099, 1, 5, 12),
+                         fim=datetime(2099, 1, 5, 13), n_pessoas=2,
+                         chave_idempotencia="outro-0001", slots=[])
+    r = c.get("/api/salas/ocupacao", params={"dia": "2099-01-05"})
+    assert r.status_code == 200
+    assert sorted((o["minha"], o["inicio"][11:16]) for o in r.json()) == [(False, "12:00"), (True, "10:00")]
+    assert c.get("/api/salas/ocupacao", params={"dia": "2099-01-06"}).json() == []
+
+
+def test_lista_de_espera_ver_e_sair(cliente):
+    c, repo, _ = cliente
+    for i, (uid, estado) in enumerate([(7, "ativa"), (7, "atendida"), (99, "ativa")], start=1):
+        repo.espera.append(SimpleNamespace(
+            id=i, utilizador_id=uid, n_pessoas=2, janela_inicio=datetime(2099, 1, 5, 9),
+            janela_fim=datetime(2099, 1, 5, 13), duracao=60, estado=estado,
+            criado_em=datetime(2099, 1, 4, 20)))
+    assert [e["id"] for e in c.get("/api/reservas/espera").json()] == [1, 2]
+    assert c.delete("/api/reservas/espera/3").status_code == 404
+    assert c.delete("/api/reservas/espera/2").status_code == 409
+    assert c.delete("/api/reservas/espera/1").status_code == 204
+    assert [e["id"] for e in c.get("/api/reservas/espera").json()] == [2]
+
+
 def test_sem_sessao_e_401():
     app.dependency_overrides.clear()
-    app.dependency_overrides[get_settings] = lambda: SimpleNamespace(auth_modo_dev=False)
+    app.dependency_overrides[get_settings] = lambda: SimpleNamespace(
+        auth_modo_dev=False)
+    app.dependency_overrides[get_repo] = lambda: RepoFalso()
     try:
         assert TestClient(app).get("/api/salas").status_code == 401
     finally:

@@ -35,6 +35,9 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     try:
         criar_tabelas()
+        if settings.semear_salas:
+            from app.seed import semear
+            semear()
     except Exception:
         log.exception("Não foi possível criar as tabelas; a base de dados está acessível?")
 

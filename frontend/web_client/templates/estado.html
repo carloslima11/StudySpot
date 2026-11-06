@@ -1,0 +1,20 @@
+{% extends "app_base.html" %}
+{% block title %}Estado do sistema · StudySpot{% endblock %}
+
+{% block pagina %}
+<section class="cabeca">
+  <p class="eyebrow">VERIFICADO ÀS {{ momento.strftime('%H:%M:%S') }}</p>
+  <h1 class="titulo">Estado do sistema</h1>
+  <p class="sub">Pedidos feitos através do Nginx. Se uma instância cair, a outra continua a responder.</p>
+</section>
+
+<ul class="verificacoes">
+  {% for nome, detalhe, ok in verificacoes %}
+  <li class="bloco verificacao {{ 'ok' if ok else 'falha' }}">
+    <span class="regra-icone" aria-hidden="true">{{ '✓' if ok else '✕' }}</span>
+    <div><strong>{{ nome }}</strong><span>{{ detalhe }} · {{ 'a funcionar' if ok else 'indisponível' }}</span></div>
+  </li>
+  {% endfor %}
+</ul>
+<a class="btn btn-auto" href="{{ url_for('reservas.estado') }}">Verificar outra vez <span>→</span></a>
+{% endblock %}

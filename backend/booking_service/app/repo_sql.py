@@ -10,9 +10,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.csp import PedidoEspera
-from app.db import get_engine
+from app.bd import get_engine
 from app.models import Base, ListaEspera, Reserva, ReservaSlot, Sala
 from app.servico_reservas import ESTADOS_ATIVOS, ConflitoSlot
+
 
 @lru_cache
 def get_sessionmaker() -> sessionmaker[Session]:
@@ -93,7 +94,8 @@ class RepositorioSQL:
             if violada == _CONSTRAINT_SLOT:
                 raise ConflitoSlot() from exc
             if violada == _CONSTRAINT_CHAVE:
-                existente = self.reserva_por_chave(utilizador_id, chave_idempotencia)
+                existente = self.reserva_por_chave(
+                    utilizador_id, chave_idempotencia)
                 if existente is not None:
                     return existente
             raise
@@ -110,7 +112,8 @@ class RepositorioSQL:
             self.sessao.rollback()
             return reserva
         reserva.estado = "cancelada"
-        self.sessao.execute(delete(ReservaSlot).where(ReservaSlot.reserva_id == reserva.id))
+        self.sessao.execute(delete(ReservaSlot).where(
+            ReservaSlot.reserva_id == reserva.id))
         self.sessao.commit()
         return reserva
 
@@ -120,6 +123,25 @@ class RepositorioSQL:
             janela_inicio=pedido.janela_inicio, janela_fim=pedido.janela_fim,
             duracao=pedido.duracao_minutos, criado_em=pedido.criado_em, estado="ativa")
         self.sessao.add(espera)
+        self.sessao.commit()
+        return espera
+
+    def esperas_do_utilizador(self, utilizador_id: int) -> list[ListaEspera]:
+        return list(self.sessao.scalars(
+            select(ListaEspera).where(
+                ListaEspera.utilizador_id == utilizador_id)
+            .order_by(ListaEspera.janela_inicio.desc(), ListaEspera.id.desc())))
+
+    def sair_espera(self, utilizador_id: int, espera_id: int) -> Optional[ListaEspera]:
+        espera = self.sessao.scalars(
+            select(ListaEspera).where(ListaEspera.id == espera_id).with_for_update()).first()
+        if espera is None or espera.utilizador_id != utilizador_id:
+            self.sessao.rollback()
+            return None
+        if espera.estado != "ativa":
+            self.sessao.rollback()
+            return espera
+        self.sessao.delete(espera)
         self.sessao.commit()
         return espera
 
@@ -150,7 +172,8 @@ class RepositorioSQL:
         if ids:
             for r in reservas:
                 r.estado = "libertada"
-            self.sessao.execute(delete(ReservaSlot).where(ReservaSlot.reserva_id.in_(ids)))
+            self.sessao.execute(delete(ReservaSlot).where(
+                ReservaSlot.reserva_id.in_(ids)))
         self.sessao.commit()
         return ids
 

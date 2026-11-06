@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+<div class="app">
+  <header class="topo">
+    <a class="brand" href="{{ url_for('reservas.nova') }}">
+      <span class="brand-icon"><span></span></span>
+      <span class="brand-name">StudySpot</span>
+    </a>
+    <nav class="topo-nav" aria-label="Principal">
+      <a href="{{ url_for('reservas.nova') }}" {% if ativo == 'nova' %}aria-current="page"{% endif %}>Reservar</a>
+      <a href="{{ url_for('reservas.minhas') }}" {% if ativo == 'minhas' %}aria-current="page"{% endif %}>As minhas reservas</a>
+      <a href="{{ url_for('reservas.salas') }}" {% if ativo == 'salas' %}aria-current="page"{% endif %}>Salas</a>
+      <a href="{{ url_for('reservas.estado') }}" {% if ativo == 'estado' %}aria-current="page"{% endif %}>Estado</a>
+    </nav>
+    <div class="topo-user">
+      <a class="topo-perfil" href="{{ url_for('conta.perfil') }}" {% if ativo == 'perfil' %}aria-current="page"{% endif %}>{{ utilizador_email }}</a>
+      <a class="btn-linha" href="{{ url_for('auth.logout') }}">Sair</a>
+    </div>
+  </header>
+
+  <main class="pagina">
+    {% with mensagens = get_flashed_messages(with_categories=true) %}
+      {% for categoria, msg in mensagens %}
+        <div class="alert {{ categoria }}">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+    {% block pagina %}{% endblock %}
+  </main>
+
+  <footer class="rodape">Feito para estudantes que têm mais que fazer.</footer>
+</div>
+{% endblock %}
