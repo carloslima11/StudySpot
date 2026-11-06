@@ -16,7 +16,9 @@
     </nav>
     <div class="topo-user">
       <a class="topo-perfil" href="{{ url_for('conta.perfil') }}" {% if ativo == 'perfil' %}aria-current="page"{% endif %}>{{ utilizador_email }}</a>
-      <a class="btn-linha" href="{{ url_for('auth.logout') }}">Sair</a>
+      <form method="POST" action="{{ url_for('auth.logout') }}">
+        <button class="btn-linha" type="submit">Sair</button>
+      </form>
     </div>
   </header>
 

@@ -1,110 +1,98 @@
-import re
-
-import pyotp
+from urllib.parse import parse_qs, urlparse
 from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 
-from models import User, db
 from routes.reservas import qr_svg
-from services import verificar_codigo
+from services.auth_api import AuthAPI, AuthAPIError, AuthServiceUnavailable
 from services.booking_api import BookingAPI, ErroAPI, ServicoIndisponivel
 
 conta_bp = Blueprint("conta", __name__)
 
-EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 MINIMO_PALAVRA_PASSE = 10
-
-
-def validar_palavra_passe(nova: str, confirmacao: str) -> str | None:
-    if len(nova) < MINIMO_PALAVRA_PASSE:
-        return f"A palavra-passe tem de ter pelo menos {MINIMO_PALAVRA_PASSE} caracteres."
-    if nova != confirmacao:
-        return "As palavras-passe não coincidem."
-    return None
 
 
 def segredo_legivel(segredo: str) -> str:
     return " ".join(segredo[i:i + 4] for i in range(0, len(segredo), 4))
 
 
+def auth_api() -> AuthAPI:
+    return AuthAPI(current_app.config["AUTH_API_URL"])
+
+
 @conta_bp.route("/registo", methods=["GET", "POST"])
 def registo():
-    if session.get("user_id"):
+    if session.get("token_sessao"):
         return redirect(url_for("reservas.nova"))
     email = ""
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
+        nome = request.form.get("nome", "").strip()
         erro = None
-        if not EMAIL.match(email):
-            erro = "Escreve um e-mail válido."
-        elif User.query.filter_by(email=email).first():
-            erro = "Já existe uma conta com este e-mail."
-        else:
-            erro = validar_palavra_passe(request.form.get("password", ""),
-                                         request.form.get("password2", ""))
+        if not nome:
+            erro = "Escreve o teu nome."
+        palavra_passe = request.form.get("password", "")
+        if not erro and len(palavra_passe) < MINIMO_PALAVRA_PASSE:
+            erro = f"A palavra-passe tem de ter pelo menos {MINIMO_PALAVRA_PASSE} caracteres."
+        if not erro and palavra_passe != request.form.get("password2", ""):
+            erro = "As palavras-passe não coincidem."
         if erro:
             flash(erro, "erro")
         else:
-            novo = User(email=email)
-            novo.set_password(request.form["password"])
-            session.clear()
-            session["registo"] = {"email": email, "hash": novo.password_hash,
-                                  "segredo": pyotp.random_base32()}
-            return redirect(url_for("conta.registo_2fa"))
+            try:
+                dados = auth_api().registar(
+                    nome,
+                    email,
+                    palavra_passe,
+                )
+                session.clear()
+                session["registo_pendente"] = {
+                    "email": email,
+                    "token_confirmacao": dados["token_confirmacao"],
+                    "uri_configuracao_totp": dados["uri_configuracao_totp"],
+                }
+                return redirect(url_for("conta.registo_2fa"))
+            except AuthAPIError as exc:
+                flash(str(exc), "erro")
+            except AuthServiceUnavailable as exc:
+                flash(str(exc), "erro")
     return render_template("registo.html", email=email)
 
 
 @conta_bp.route("/registo/2fa", methods=["GET", "POST"])
 def registo_2fa():
-    pendente = session.get("registo")
+    pendente = session.get("registo_pendente")
     if not pendente:
         return redirect(url_for("conta.registo"))
     if request.method == "POST":
         codigo = request.form.get("codigo", "").replace(" ", "").strip()
-        if not verificar_codigo(pendente["segredo"], codigo):
-            flash("Código inválido. Confirma a hora do telemóvel e tenta novamente.", "erro")
-        elif User.query.filter_by(email=pendente["email"]).first():
-            session.pop("registo", None)
-            flash("Já existe uma conta com este e-mail.", "erro")
-            return redirect(url_for("auth.login"))
-        else:
-            novo = User(email=pendente["email"], password_hash=pendente["hash"],
-                        totp_secret=pendente["segredo"])
-            db.session.add(novo)
-            db.session.commit()
+        try:
+            auth_api().confirmar_totp(pendente["token_confirmacao"], codigo)
             session.clear()
-            session["user_id"] = novo.id
-            flash("Conta criada. Já podes reservar uma sala.", "ok")
-            return redirect(url_for("reservas.nova"))
-    uri = pyotp.TOTP(pendente["segredo"]).provisioning_uri(name=pendente["email"],
-                                                           issuer_name="StudySpot")
+            flash(
+                "Conta criada. Inicia sessão com o próximo código da app autenticadora.",
+                "ok",
+            )
+            return redirect(url_for("auth.login"))
+        except AuthAPIError as exc:
+            flash(str(exc), "erro")
+        except AuthServiceUnavailable as exc:
+            flash(str(exc), "erro")
+    uri = pendente["uri_configuracao_totp"]
+    segredo = parse_qs(urlparse(uri).query).get("secret", [""])[0]
     return render_template("registo_2fa.html", svg=qr_svg(uri),
-                           segredo=segredo_legivel(pendente["segredo"]), email=pendente["email"])
+                           segredo=segredo_legivel(segredo), email=pendente["email"])
 
 
 @conta_bp.route("/perfil", methods=["GET", "POST"])
 def perfil():
-    if not session.get("user_id"):
+    if not session.get("token_sessao"):
         return redirect(url_for("auth.login"))
-    utilizador = db.session.get(User, session["user_id"])
-    if utilizador is None:
-        session.clear()
-        return redirect(url_for("auth.login"))
-    if request.method == "POST":
-        if not utilizador.check_password(request.form.get("atual", "")):
-            flash("A palavra-passe atual não está correta.", "erro")
-        else:
-            erro = validar_palavra_passe(request.form.get("nova", ""), request.form.get("nova2", ""))
-            if erro:
-                flash(erro, "erro")
-            else:
-                utilizador.set_password(request.form["nova"])
-                db.session.commit()
-                flash("Palavra-passe alterada.", "ok")
-        return redirect(url_for("conta.perfil"))
 
     reservas, esperas = [], []
     try:
-        cliente = BookingAPI(current_app.config["BOOKING_API_URL"], utilizador.id)
+        cliente = BookingAPI(
+            current_app.config["BOOKING_API_URL"],
+            session["token_sessao"],
+        )
         reservas = cliente.minhas()
         esperas = cliente.esperas()
     except (ServicoIndisponivel, ErroAPI) as exc:
@@ -115,4 +103,5 @@ def perfil():
         "libertadas": sum(r["estado"] == "libertada" for r in reservas),
         "espera": sum(e["estado"] == "ativa" for e in esperas),
     }
+    utilizador = {"email": session.get("utilizador_email", "")}
     return render_template("perfil.html", ativo="perfil", utilizador=utilizador, contagem=contagem)

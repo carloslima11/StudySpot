@@ -1,10 +1,12 @@
+import json
 from collections.abc import Iterator
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Annotated, Optional
 
 from fastapi import Depends, Header, HTTPException
 from redis import Redis
+from redis.exceptions import RedisError
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
@@ -12,6 +14,8 @@ from app.csp import ConfigCSP
 from app.locks_redis import LocksRedis
 from app.repo_sql import RepositorioSQL, get_session
 from app.schemas import LISBOA
+
+_TTL_SESSAO_SEGUNDOS = 30 * 60
 
 
 def agora() -> datetime:
@@ -37,8 +41,30 @@ def get_cfg(settings: Annotated[Settings, Depends(get_settings)]) -> ConfigCSP:
 
 
 def utilizador_atual(
-        settings: Annotated[Settings, Depends(get_settings)],
-        x_utilizador_id: Annotated[Optional[int], Header()] = None) -> int:
-    if settings.auth_modo_dev and x_utilizador_id is not None:
-        return x_utilizador_id
-    raise HTTPException(status_code=401, detail="Sessão inválida ou em falta.")
+        redis: Annotated[Redis, Depends(_cliente_redis)],
+        authorization: Annotated[Optional[str], Header()] = None) -> int:
+    if authorization is None or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Sessão inválida ou em falta.")
+    token = authorization.removeprefix("Bearer ").strip()
+    try:
+        valor = redis.get(f"sessao:{token}")
+        if valor is None:
+            raise HTTPException(status_code=401, detail="Sessão inválida ou expirada.")
+        if isinstance(valor, bytes):
+            valor = valor.decode("utf-8")
+        dados = json.loads(valor)
+        expira_em = datetime.fromisoformat(dados["expira_em"])
+        if expira_em.tzinfo is None or expira_em <= datetime.now(timezone.utc):
+            redis.delete(f"sessao:{token}")
+            raise HTTPException(status_code=401, detail="Sessão inválida ou expirada.")
+        restante = int((expira_em - datetime.now(timezone.utc)).total_seconds())
+        redis.expire(f"sessao:{token}", min(_TTL_SESSAO_SEGUNDOS, restante))
+        return int(dados["utilizador_id"])
+    except HTTPException:
+        raise
+    except (RedisError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+        raise HTTPException(
+            status_code=503,
+            detail="O serviço está temporariamente indisponível. "
+                   "Tenta novamente dentro de instantes.",
+        ) from None

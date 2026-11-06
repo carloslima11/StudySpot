@@ -1,21 +1,19 @@
+from app.csp import ConfigCSP
+from app.main import app
+from app.locks_redis import RedisIndisponivel
+from app.deps import get_cfg, get_locks, get_repo, utilizador_atual
+from app.core.config import get_settings
+from app.routes.health import MENSAGEM_INDISPONIVEL
+from fastapi.testclient import TestClient
+from pydantic import SecretStr
+from sqlalchemy.exc import OperationalError
+from types import SimpleNamespace
+from datetime import datetime, time, timedelta
+from contextlib import contextmanager
 import pytest
 
 pytest.importorskip("fastapi")
 pytest.importorskip("httpx")
-
-from contextlib import contextmanager
-from datetime import datetime, time, timedelta
-from types import SimpleNamespace
-
-from pydantic import SecretStr
-
-from fastapi.testclient import TestClient
-
-from app.core.config import get_settings
-from app.deps import get_cfg, get_locks, get_repo, utilizador_atual
-from app.locks_redis import RedisIndisponivel
-from app.main import app
-from app.csp import ConfigCSP
 
 
 class LocksFalsos:
@@ -70,7 +68,8 @@ class RepoFalso:
         return [e for e in self.espera if getattr(e, "utilizador_id", None) == uid]
 
     def sair_espera(self, uid, espera_id):
-        e = next((e for e in self.espera if getattr(e, "id", None) == espera_id), None)
+        e = next((e for e in self.espera if getattr(
+            e, "id", None) == espera_id), None)
         if e is None or e.utilizador_id != uid:
             return None
         if e.estado == "ativa":
@@ -98,16 +97,33 @@ def cliente():
 
 
 def corpo(**extra):
-    d = {"n_pessoas": 2, "inicio": "2099-01-05T10:00:00", "fim": "2099-01-05T11:00:00"}
+    d = {"n_pessoas": 2, "inicio": "2099-01-05T10:00:00",
+         "fim": "2099-01-05T11:00:00"}
     d.update(extra)
     return d
 
 
+def test_falha_operacional_postgres_devolve_503(cliente):
+    client, _, _ = cliente
+
+    def falha_postgres():
+        raise OperationalError("SELECT 1", {}, RuntimeError("falha simulada"))
+
+    app.dependency_overrides[get_repo] = falha_postgres
+
+    response = client.get("/api/salas")
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": MENSAGEM_INDISPONIVEL}
+
+
 def test_cria_reserva_e_e_idempotente(cliente):
     c, repo, _ = cliente
-    r1 = c.post("/api/reservas", json=corpo(), headers={"Idempotency-Key": "chave-0001"})
+    r1 = c.post("/api/reservas", json=corpo(),
+                headers={"Idempotency-Key": "chave-0001"})
     assert r1.status_code == 201 and r1.json()["estado"] == "confirmada"
-    r2 = c.post("/api/reservas", json=corpo(), headers={"Idempotency-Key": "chave-0001"})
+    r2 = c.post("/api/reservas", json=corpo(),
+                headers={"Idempotency-Key": "chave-0001"})
     assert r2.status_code == 200 and r2.json()["estado"] == "duplicada"
     assert len(repo.reservas) == 1
 
@@ -127,7 +143,8 @@ def test_lotacao_excedida_e_recusada_com_motivo(cliente):
 def test_redis_em_baixo_devolve_503_e_nao_confirma(cliente):
     c, repo, locks = cliente
     locks.erro = RedisIndisponivel("redis")
-    r = c.post("/api/reservas", json=corpo(), headers={"Idempotency-Key": "chave-0003"})
+    r = c.post("/api/reservas", json=corpo(),
+               headers={"Idempotency-Key": "chave-0003"})
     assert r.status_code == 503 and repo.reservas == []
 
 
@@ -141,19 +158,23 @@ def test_fim_antes_do_inicio_e_422(cliente):
 
 def test_cancelar_reserva(cliente):
     c, repo, _ = cliente
-    r = c.post("/api/reservas", json=corpo(), headers={"Idempotency-Key": "chave-0005"})
+    r = c.post("/api/reservas", json=corpo(),
+               headers={"Idempotency-Key": "chave-0005"})
     reserva_id = r.json()["reserva"]["id"]
     resposta = c.delete(f"/api/reservas/{reserva_id}")
-    assert resposta.status_code == 200 and resposta.json()["estado"] == "cancelada"
+    assert resposta.status_code == 200 and resposta.json()[
+        "estado"] == "cancelada"
     assert c.delete(f"/api/reservas/{reserva_id}").status_code == 200
 
 
 def test_cancelar_reserva_inexistente_ou_de_outro_e_404(cliente):
     c, repo, _ = cliente
     assert c.delete("/api/reservas/999").status_code == 404
-    r = c.post("/api/reservas", json=corpo(), headers={"Idempotency-Key": "chave-0006"})
+    r = c.post("/api/reservas", json=corpo(),
+               headers={"Idempotency-Key": "chave-0006"})
     repo.reservas[0].utilizador_id = 99
-    assert c.delete(f"/api/reservas/{r.json()['reserva']['id']}").status_code == 404
+    assert c.delete(
+        f"/api/reservas/{r.json()['reserva']['id']}").status_code == 404
 
 
 def test_qr_do_dono_valida_na_sala_certa(cliente):
@@ -161,7 +182,8 @@ def test_qr_do_dono_valida_na_sala_certa(cliente):
     c, repo, _ = cliente
     app.dependency_overrides[get_settings] = lambda: SimpleNamespace(
         checkin_segredo=SecretStr("s" * 32), qr_validade_segundos=120)
-    r = c.post("/api/reservas", json=corpo(), headers={"Idempotency-Key": "chave-0007"})
+    r = c.post("/api/reservas", json=corpo(),
+               headers={"Idempotency-Key": "chave-0007"})
     reserva_id = r.json()["reserva"]["id"]
     qr = c.get(f"/api/reservas/{reserva_id}/qr")
     assert qr.status_code == 200
@@ -178,20 +200,26 @@ def test_qr_sem_segredo_configurado_e_503(cliente):
     c, _, _ = cliente
     app.dependency_overrides[get_settings] = lambda: SimpleNamespace(
         checkin_segredo=None, qr_validade_segundos=120)
-    r = c.post("/api/reservas", json=corpo(), headers={"Idempotency-Key": "chave-0008"})
-    assert c.get(f"/api/reservas/{r.json()['reserva']['id']}/qr").status_code == 503
+    app.dependency_overrides[get_repo] = lambda: RepoFalso()
+    r = c.post("/api/reservas", json=corpo(),
+               headers={"Idempotency-Key": "chave-0008"})
+    assert c.get(
+        f"/api/reservas/{r.json()['reserva']['id']}/qr").status_code == 503
 
 
 def test_ocupacao_do_dia_marca_as_minhas(cliente):
     c, repo, _ = cliente
-    c.post("/api/reservas", json=corpo(), headers={"Idempotency-Key": "chave-0009"})
+    c.post("/api/reservas", json=corpo(),
+           headers={"Idempotency-Key": "chave-0009"})
     repo.inserir_reserva(utilizador_id=99, sala_id=1, inicio=datetime(2099, 1, 5, 12),
                          fim=datetime(2099, 1, 5, 13), n_pessoas=2,
                          chave_idempotencia="outro-0001", slots=[])
     r = c.get("/api/salas/ocupacao", params={"dia": "2099-01-05"})
     assert r.status_code == 200
-    assert sorted((o["minha"], o["inicio"][11:16]) for o in r.json()) == [(False, "12:00"), (True, "10:00")]
-    assert c.get("/api/salas/ocupacao", params={"dia": "2099-01-06"}).json() == []
+    assert sorted((o["minha"], o["inicio"][11:16])
+                  for o in r.json()) == [(False, "12:00"), (True, "10:00")]
+    assert c.get("/api/salas/ocupacao",
+                 params={"dia": "2099-01-06"}).json() == []
 
 
 def test_lista_de_espera_ver_e_sair(cliente):

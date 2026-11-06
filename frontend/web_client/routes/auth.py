@@ -1,8 +1,13 @@
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash
-from models import User
-from services import verificar_codigo
+from flask import current_app
+
+from services.auth_api import AuthAPI, AuthAPIError, AuthServiceUnavailable
 
 auth_bp = Blueprint("auth", __name__)
+
+
+def api() -> AuthAPI:
+    return AuthAPI(current_app.config["AUTH_API_URL"])
 
 
 @auth_bp.route("/", methods=["GET"])
@@ -14,50 +19,61 @@ def index():
 def login():
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
-        password = request.form.get("password", "")
-
-        user = User.query.filter_by(email=email).first()
-
-        if user and user.check_password(password):
-            # Passo 1 concluído: guarda o utilizador "pendente" até validar o 2FA
+        try:
+            desafio = api().iniciar_login(email, request.form.get("password", ""))
             session.clear()
-            session["pending_user_id"] = user.id
-            session["remember"] = bool(request.form.get("remember"))
+            session["desafio_login"] = desafio["token_desafio"]
             return redirect(url_for("auth.verificar"))
-
-        flash("E-mail ou palavra-passe incorretos.", "erro")
+        except AuthAPIError as exc:
+            flash(str(exc), "erro")
+        except AuthServiceUnavailable as exc:
+            flash(str(exc), "erro")
 
     return render_template("login.html")
 
 
 @auth_bp.route("/verificar", methods=["GET", "POST"])
 def verificar():
-    user_id = session.get("pending_user_id")
-    if not user_id:
+    desafio = session.get("desafio_login")
+    if not desafio:
         return redirect(url_for("auth.login"))
-
-    user = User.query.get(user_id)
 
     if request.method == "POST":
         codigo = request.form.get("codigo", "").replace(" ", "").strip()
-        if verificar_codigo(user.totp_secret, codigo):
-            session.pop("pending_user_id", None)
-            session["user_id"] = user.id
-            session.permanent = session.pop("remember", False)
+        try:
+            dados = api().confirmar_login(desafio, codigo)
+            session.clear()
+            session["token_sessao"] = dados["token"]
+            session["utilizador_id"] = dados["utilizador_id"]
+            session["utilizador_email"] = dados["email"]
+            session["perfil"] = dados["perfil"]
+            session.permanent = True
             return redirect(url_for("auth.dashboard"))
-        flash("Código inválido. Tenta novamente.", "erro")
+        except AuthAPIError as exc:
+            flash(str(exc), "erro")
+        except AuthServiceUnavailable as exc:
+            flash(str(exc), "erro")
 
     return render_template("verificar.html")
 
 
 @auth_bp.route("/dashboard")
 def dashboard():
-    if not session.get("user_id"):
+    if not session.get("token_sessao"):
         return redirect(url_for("auth.login"))
     return redirect(url_for("reservas.nova"))
 
 
-@auth_bp.route("/logout")
+@auth_bp.route("/logout", methods=["POST"])
 def logout():
+    token = session.get("token_sessao")
+    if token:
+        try:
+            api().logout(token)
+        except AuthServiceUnavailable:
+            flash(
+                "A sessão local foi terminada, mas o serviço de autenticação não confirmou o logout.",
+                "erro",
+            )
     session.clear()
     return redirect(url_for("auth.login"))

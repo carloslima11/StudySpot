@@ -36,9 +36,11 @@ class Resposta:
 
 
 class BookingAPI:
-    def __init__(self, base_url: str, utilizador_id: Optional[int] = None, timeout: float = 5.0) -> None:
+    def __init__(self, base_url: str, token_sessao: Optional[str] = None, timeout: float = 5.0) -> None:
         self.base = base_url.rstrip("/")
-        self.cabecalhos = {} if utilizador_id is None else {"X-Utilizador-Id": str(utilizador_id)}
+        self.cabecalhos = (
+            {} if token_sessao is None else {"Authorization": f"Bearer {token_sessao}"}
+        )
         self.timeout = timeout
 
     def _pedido(self, metodo: str, caminho: str, **kwargs) -> Resposta:

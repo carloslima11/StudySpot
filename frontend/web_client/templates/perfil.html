@@ -5,7 +5,7 @@
 <section class="cabeca">
   <p class="eyebrow">A TUA CONTA</p>
   <h1 class="titulo">Perfil</h1>
-  <p class="sub">Os teus dados, o resumo das reservas e a palavra-passe.</p>
+  <p class="sub">Os teus dados e o resumo das reservas.</p>
 </section>
 
 <div class="colunas">
@@ -25,20 +25,5 @@
     </div>
   </section>
 
-  <section class="bloco bloco-form" aria-labelledby="pp-titulo">
-    <h2 id="pp-titulo">Mudar palavra-passe</h2>
-    <form method="POST" action="{{ url_for('conta.perfil') }}">
-      <label for="atual">Palavra-passe atual</label>
-      <input type="password" id="atual" name="atual" autocomplete="current-password" required>
-
-      <label for="nova">Nova palavra-passe</label>
-      <input type="password" id="nova" name="nova" minlength="10" placeholder="Pelo menos 10 caracteres" autocomplete="new-password" required>
-
-      <label for="nova2">Repetir nova palavra-passe</label>
-      <input type="password" id="nova2" name="nova2" minlength="10" autocomplete="new-password" required>
-
-      <button type="submit" class="btn">Guardar <span>→</span></button>
-    </form>
-  </section>
 </div>
 {% endblock %}

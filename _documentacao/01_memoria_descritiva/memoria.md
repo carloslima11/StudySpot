@@ -76,7 +76,7 @@ GitHub (ramo `main` só com as versões entregues, ramo `develop` para o trabalh
 
 ### Tecnologias
 
-Python, FastAPI, SQLAlchemy, Alembic, PostgreSQL (replicação primário e réplica), Redis, Nginx, Streamlit, Eclipse Mosquitto (MQTT), ESP32, pyotp, python-constraint, Docker, Docker Compose, pytest e GitHub Actions.
+Python, Flask, FastAPI, SQLAlchemy, Alembic, PostgreSQL (replicação primário e réplica), Redis, Nginx, Eclipse Mosquitto (MQTT), ESP32, pyotp, python-constraint, Docker, Docker Compose, pytest e GitHub Actions.
 
 ### Estrutura da equipa
 

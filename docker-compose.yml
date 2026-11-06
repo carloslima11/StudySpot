@@ -2,12 +2,14 @@ services:
   postgres:
     image: postgres:18
     restart: unless-stopped
+    command: ["postgres", "-c", "hba_file=/etc/postgresql/pg_hba.conf"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - pgdata:/var/lib/postgresql
+      - ./database/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: "5s"
@@ -15,6 +17,60 @@ services:
       retries: 10
     ports:
       - "127.0.0.1:15432:5432"
+
+  postgres-replication-role:
+    image: postgres:18
+    restart: "no"
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD:?Definir POSTGRES_REPLICATION_PASSWORD no ficheiro .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./database/postgres/ensure_replication_role.sh:/usr/local/bin/ensure_replication_role.sh:ro
+    entrypoint: ["/bin/sh", "/usr/local/bin/ensure_replication_role.sh"]
+
+  postgres-replica:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      PGDATA: /var/lib/postgresql/18/docker
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD:?Definir POSTGRES_REPLICATION_PASSWORD no ficheiro .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      postgres-replication-role:
+        condition: service_completed_successfully
+    volumes:
+      - pgdata_replica:/var/lib/postgresql
+      - ./database/postgres/replica_entrypoint.sh:/usr/local/bin/replica_entrypoint.sh:ro
+    entrypoint: ["/bin/sh", "/usr/local/bin/replica_entrypoint.sh"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: "5s"
+      timeout: "3s"
+      retries: 10
+
+  postgres-enable-sync:
+    image: postgres:18
+    restart: "no"
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      postgres-replica:
+        condition: service_healthy
+    volumes:
+      - ./database/postgres/enable_synchronous_replication.sh:/usr/local/bin/enable_synchronous_replication.sh:ro
+    entrypoint: ["/bin/sh", "/usr/local/bin/enable_synchronous_replication.sh"]
 
   redis:
     image: redis:7
@@ -75,9 +131,11 @@ services:
     image: nginx:alpine
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${NGINX_PORTA:-8080}:80"
+       - "10.208.197.93:8080:80"
+       - "10.208.197.93:8443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./.certs:/etc/nginx/certs:ro
     depends_on:
       auth1:
         condition: service_healthy
@@ -87,6 +145,8 @@ services:
         condition: service_healthy
       booking2:
         condition: service_healthy
+      web:
+        condition: service_started
 
   mosquitto:
     image: eclipse-mosquitto:2
@@ -161,17 +221,24 @@ services:
     build: ./frontend/web_client
     restart: unless-stopped
     environment:
-      SECRET_KEY: ${WEB_SECRET_KEY:-dev-secret}
-      DATABASE_URL: sqlite:////app/instance/studyspot.db
-      BOOKING_API_URL: http://nginx
-    volumes:
-      - webdata:/app/instance
+      WEB_SECRET_KEY: ${WEB_SECRET_KEY:?Definir WEB_SECRET_KEY no ficheiro .env}
+      SESSION_COOKIE_SECURE: "true"
+      SESSION_REDIS_URL: redis://redis:6379/1
+      AUTH_API_URL: http://nginx:8081/api/auth
+      BOOKING_API_URL: http://nginx:8081
     depends_on:
-      - nginx
-    ports:
-      - "127.0.0.1:5000:5000"
+      redis:
+        condition: service_healthy
+      auth1:
+        condition: service_healthy
+      auth2:
+        condition: service_healthy
+      booking1:
+        condition: service_healthy
+      booking2:
+        condition: service_healthy
 
 volumes:
   pgdata:
+  pgdata_replica:
   mosquittodata:
-  webdata:

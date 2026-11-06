@@ -5,7 +5,6 @@ from zoneinfo import ZoneInfo
 from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 from markupsafe import Markup
 
-from models import User, db
 from services.booking_api import BookingAPI, ErroAPI, ServicoIndisponivel
 
 reservas_bp = Blueprint("reservas", __name__)
@@ -24,7 +23,10 @@ def agora() -> datetime:
 
 
 def api() -> BookingAPI:
-    return BookingAPI(current_app.config["BOOKING_API_URL"], session["user_id"])
+    return BookingAPI(
+        current_app.config["BOOKING_API_URL"],
+        session["token_sessao"],
+    )
 
 
 def para_data(texto: str) -> datetime:
@@ -49,14 +51,13 @@ def qr_svg(texto: str):
 
 @reservas_bp.before_request
 def exigir_sessao():
-    if not session.get("user_id"):
+    if not session.get("token_sessao"):
         return redirect(url_for("auth.login"))
 
 
 @reservas_bp.app_context_processor
 def dados_comuns():
-    utilizador = db.session.get(User, session.get("user_id")) if session.get("user_id") else None
-    return {"utilizador_email": utilizador.email if utilizador else ""}
+    return {"utilizador_email": session.get("utilizador_email", "")}
 
 
 @reservas_bp.app_template_filter("hora")

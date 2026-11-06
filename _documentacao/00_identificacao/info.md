@@ -30,7 +30,7 @@
 
 8. **Palavras-chave:** reserva de salas, sistemas distribuídos, tolerância a faltas, segurança informática, autenticação de dois fatores, TOTP, inteligência artificial, CSP, IoT, MQTT, replicação, Docker.
 
-9. **Tecnologias utilizadas:** Python, FastAPI, SQLAlchemy, Alembic, PostgreSQL, Redis, Nginx, Streamlit, Eclipse Mosquitto (MQTT), ESP32, pyotp, python-constraint, Docker, Docker Compose, GitHub, ClickUp.
+9. **Tecnologias utilizadas:** Python, Flask, FastAPI, SQLAlchemy, Alembic, PostgreSQL, Redis, Nginx, Eclipse Mosquitto (MQTT), ESP32, pyotp, python-constraint, Docker, Docker Compose, GitHub, ClickUp.
 
 10. **Resumo curto:**
 

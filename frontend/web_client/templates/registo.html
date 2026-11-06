@@ -23,6 +23,9 @@
       {% endwith %}
 
       <form method="POST" action="{{ url_for('conta.registo') }}">
+        <label for="nome">Nome</label>
+        <input type="text" id="nome" name="nome" autocomplete="name" required>
+
         <label for="email">E-mail</label>
         <input type="email" id="email" name="email" value="{{ email }}" placeholder="nome@universidade.pt" autocomplete="email" required>
 

@@ -1,5 +1,7 @@
 # Modelo de Faltas – StudySpot
 
+O procedimento passo-a-passo para executar os ensaios locais está no [Guião de teste de tolerância a falhas](./guiao_teste_tolerancia_falhas.md).
+
 ## 1. Objetivo
 
 O presente documento define o modelo de faltas do sistema de reserva de salas de estudo, identificando os componentes que podem falhar, os tipos de falha considerados, o número de falhas simultâneas que o sistema pretende suportar e os mecanismos de deteção e recuperação associados.
@@ -47,11 +49,11 @@ Uma instância dos serviços de autenticação ou dos serviços de reservas pode
 
 ### 4.3. Falha da base de dados
 
-O PostgreSQL primário pode ficar indisponível, impedindo leituras e escritas até ao failover para a réplica.
+Se o PostgreSQL primário ficar indisponível, os serviços perdem o acesso à base de dados até à promoção manual da réplica e à alteração do destino das ligações. A réplica pode ser consultada diretamente, mas os serviços ainda não encaminham leituras para ela. Não existe failover automático.
 
 ### 4.4. Falha de uma réplica
 
-A réplica do PostgreSQL pode ficar indisponível sem que o primário deixe de funcionar.
+A réplica do PostgreSQL pode ficar indisponível. O primário mantém as leituras, mas as escritas ficam bloqueadas pela replicação síncrona e falham após o limite de cinco segundos, com resposta HTTP 503. Não se confirma uma escrita sem a respetiva gravação na réplica.
 
 ### 4.5. Falha do Redis
 
@@ -110,7 +112,7 @@ Quando uma falha é detetada, o Nginx deve deixar de encaminhar pedidos para a i
 ## 8. Recuperação e substituição
 
 - **Reinício automático do container** para instâncias dos serviços de autenticação, serviços de reservas e broker MQTT;
-- **Failover do PostgreSQL**: a réplica assume as leituras, a promoção da réplica a primária é feita manualmente nesta fase do projeto, podendo ser automatizada posteriormente;
+- **Failover do PostgreSQL**: a promoção da réplica a primária e a alteração do destino das ligações dos serviços são manuais nesta fase do projeto; não há failover automático;
 - **Reconexão automática ao Redis e ao broker MQTT**, com lógica de retry no lado dos serviços;
 - **Re-sincronização da réplica do PostgreSQL** após recuperação, para voltar a receber as atualizações do primário.
 
@@ -132,7 +134,7 @@ Dados que não podem ser perdidos: reservas confirmadas, dados dos utilizadores,
 
 ## 10. Consistência de dados entre réplicas
 
-Para a réplica do PostgreSQL, será usada replicação em *streaming* (nativa do PostgreSQL), garantindo que a réplica se mantém sincronizada com o primário com um atraso mínimo. Após uma falha e posterior recuperação da réplica, esta deverá voltar a sincronizar-se com o estado correto do primário.
+Para a réplica do PostgreSQL, é usada replicação em *streaming* síncrona. Com `synchronous_commit=on`, o primário só confirma uma transação depois de a réplica gravar o respetivo WAL. Assim, uma transação confirmada pode ser recuperada promovendo esta réplica. Se a réplica falhar, as escritas no primário não são confirmadas e terminam com erro após cinco segundos; as leituras no primário continuam disponíveis. A recuperação da réplica restabelece a redundância. A promoção continua manual e esta replicação não substitui backups.
 
 Para o Redis, a principal preocupação de consistência é o **lock distribuído** usado para evitar reservas duplicadas. Se o Redis falhar a meio de uma operação de lock, a reserva não deve ser confirmada apenas com base nesse lock. Por isso, é adicionada uma **constraint UNIQUE (sala, horário)** na tabela de reservas do PostgreSQL, como segunda barreira, mesmo que o lock falhe ou seja perdido, a base de dados rejeita qualquer tentativa de reserva duplicada.
 
@@ -140,11 +142,10 @@ Esta combinação (lock distribuído + constraint na BD) garante que, mesmo com 
 
 ## 11. Falhas específicas da interface
 
-O web client é construído com Streamlit, que mantém uma ligação por WebSocket entre cliente e servidor, cada separador do browser tem a sua própria sessão. Isto implica cuidados adicionais quando existem várias instâncias do web client atrás de um load balancer:
+O web client é construído com Flask e Gunicorn. As sessões do navegador são guardadas no Redis, e não numa cookie com os dados de autenticação. Nesta versão existe uma instância do web client; se forem adicionadas várias instâncias, todas devem usar o mesmo Redis e a mesma chave `WEB_SECRET_KEY`:
 
-- Pode ser necessária **afinidade de sessão**, por exemplo através de `ip_hash` no Nginx, para que o utilizador seja sempre encaminhado para a mesma instância;
-- Timeouts demasiado curtos no proxy podem causar recarregamento inesperado da aplicação ou interrupção da ligação;
-- Nesta fase do projeto, é também aceitável assumir uma única instância do web client como limitação conhecida, documentando-a como tal.
+- Não é necessária afinidade de sessão enquanto o armazenamento partilhado no Redis estiver disponível;
+- Nesta fase do projeto, existe uma única instância do web client, documentada como ponto único de falha.
 
 **Comportamento perante falhas, do ponto de vista do utilizador:**
 
@@ -171,8 +172,8 @@ Os seguintes cenários serão testados experimentalmente nas entregas seguintes,
 |---|---|
 | Paragem do docker numa instância de serviços de autenticação | A outra instância continua a responder, o Nginx deixa de encaminhar para a instância parada. |
 | Paragem do docker numa instância de serviços de reserva | Idem, para reservas. |
-| Tornar a réplica do PostgreSQL indisponível | O primário continua a funcionar normalmente. |
-| Tornar o PostgreSQL primário indisponível | Falha controlada das escritas, leituras continuam via réplica, recuperação após failover. |
+| Tornar a réplica do PostgreSQL indisponível | Leituras continuam no primário; escritas devolvem 503 após cinco segundos, sem confirmar alterações sem réplica. |
+| Tornar o PostgreSQL primário indisponível | Serviços devolvem 503 até promoção manual e alteração do destino das ligações; a réplica não é usada automaticamente para leituras. |
 | Paragem do docker no Redis | Login e criação de reservas indisponíveis, com mensagem clara ao utilizador; reservas confirmadas intactas, após o reinício, o serviço retoma sem reservas duplicadas. |
 | Desligar o broker MQTT | Login e reservas continuam a funcionar, check-in automático fica suspenso até o broker voltar. |
 | Interromper a comunicação entre dois serviços | A falha é detetada (timeout/health check) e o comportamento documentado nas secções 6 e 8 é verificado. |
