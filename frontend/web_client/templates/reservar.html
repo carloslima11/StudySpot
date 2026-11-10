@@ -5,7 +5,7 @@
 <section class="cabeca">
   <p class="eyebrow">{{ dia | dia_curto }}</p>
   <h1 class="titulo">Nova reserva</h1>
-  <p class="sub">Diz quantos são e quando. Antes de confirmar, o sistema verifica a lotação, o horário da sala, as sobreposições e o teu limite de {{ limite }} horas por dia.</p>
+  <p class="sub">Diz quantos são e quando. Podes reservar até {{ limite }} horas por dia.</p>
 </section>
 
 <div class="colunas">
@@ -70,7 +70,20 @@
       {% elif resultado.estado == 'espera' %}
         <div class="alert info"><strong>Ficaste na lista de espera.</strong> Se uma sala ficar livre no teu horário, é reservada para ti automaticamente.</div>
       {% elif resultado.estado == 'recusada' %}
-        <div class="alert erro"><strong>Não foi possível reservar.</strong> Vê os motivos e as alternativas abaixo.</div>
+        <div class="alert erro"><strong>Não foi possível reservar.</strong> {{ resultado.motivos | join(' ') }}</div>
+        {% if alternativas %}
+        <div class="bloco">
+          <h2>Outras opções</h2>
+          <ul class="alternativas">
+            {% for a in alternativas %}
+            <li>
+              <span>{{ a.sala }} · {{ a.inicio | hora }}–{{ a.fim | hora }}</span>
+              <a class="btn-sec" href="{{ url_for('reservas.nova', dia=a.inicio.date().isoformat(), inicio=a.inicio.strftime('%H:%M'), fim=a.fim.strftime('%H:%M'), sala=a.sala_id, pessoas=valores.pessoas) }}">Usar este</a>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
       {% else %}
         <div class="alert erro">{{ resultado.motivos | join(' ') }}</div>
       {% endif %}
@@ -82,46 +95,6 @@
       {% include "_grelha.html" %}
     </section>
 
-    <section class="bloco" aria-labelledby="csp-titulo">
-      <h2 id="csp-titulo">Validação automática (CSP)</h2>
-      {% if regras %}
-        <ul class="regras">
-          {% for regra in regras %}
-          <li class="regra ok">
-            <span class="regra-icone" aria-hidden="true">✓</span>
-            <div><strong>{{ regra.nome }}</strong><span>{{ regra.detalhe }}</span></div>
-          </li>
-          {% endfor %}
-        </ul>
-      {% elif resultado and resultado.estado in ['recusada', 'espera'] %}
-        <ul class="regras">
-          {% for motivo in resultado.motivos %}
-          <li class="regra falha">
-            <span class="regra-icone" aria-hidden="true">✕</span>
-            <div><strong>Motivo</strong><span>{{ motivo }}</span></div>
-          </li>
-          {% endfor %}
-        </ul>
-        {% if alternativas %}
-          <h3 class="subtitulo">Alternativas</h3>
-          <ul class="alternativas">
-            {% for a in alternativas %}
-            <li>
-              <span>{{ a.sala }} · {{ a.inicio | hora }}–{{ a.fim | hora }}</span>
-              <a class="btn-sec" href="{{ url_for('reservas.nova', dia=a.inicio.date().isoformat(), inicio=a.inicio.strftime('%H:%M'), fim=a.fim.strftime('%H:%M'), sala=a.sala_id, pessoas=valores.pessoas) }}">Usar este</a>
-            </li>
-            {% endfor %}
-          </ul>
-        {% endif %}
-      {% else %}
-        <ul class="regras">
-          <li class="regra"><span class="regra-icone" aria-hidden="true">1</span><div><strong>Lotação</strong><span>O grupo cabe nos lugares da sala.</span></div></li>
-          <li class="regra"><span class="regra-icone" aria-hidden="true">2</span><div><strong>Horário da sala</strong><span>O pedido está dentro do horário de funcionamento.</span></div></li>
-          <li class="regra"><span class="regra-icone" aria-hidden="true">3</span><div><strong>Sem sobreposição</strong><span>Ninguém tem a sala nesse horário.</span></div></li>
-          <li class="regra"><span class="regra-icone" aria-hidden="true">4</span><div><strong>Limite diário</strong><span>No máximo {{ limite }} horas reservadas por dia.</span></div></li>
-        </ul>
-      {% endif %}
-    </section>
   </div>
 </div>
 {% endblock %}

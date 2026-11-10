@@ -104,24 +104,6 @@ def grelha(salas: list[dict], ocupacao: list[dict], dia: date, pedido=None) -> d
     return {"horas": [s.strftime("%H:%M") for s in slots[::2]], "linhas": linhas}
 
 
-def regras_cumpridas(reserva: dict, sala: dict, minhas: list[dict]) -> list[dict]:
-    inicio, fim = para_data(reserva["inicio"]), para_data(reserva["fim"])
-    total = sum(horas(para_data(r["inicio"]), para_data(r["fim"])) for r in minhas
-                if r["estado"] in ("confirmada", "concluida")
-                and para_data(r["inicio"]).date() == inicio.date())
-    total = max(total, horas(inicio, fim))
-    return [
-        {"nome": "Lotação", "ok": True,
-         "detalhe": f"{reserva['n_pessoas']} pessoas cabem nos {sala['capacidade']} lugares da {sala['nome']}"},
-        {"nome": "Horário da sala", "ok": True,
-         "detalhe": f"{inicio:%H:%M}–{fim:%H:%M} está dentro de {sala['abertura'][:5]}–{sala['fecho'][:5]}"},
-        {"nome": "Sem sobreposição", "ok": True,
-         "detalhe": f"A {sala['nome']} fica tua das {inicio:%H:%M} às {fim:%H:%M}"},
-        {"nome": "Limite diário", "ok": True,
-         "detalhe": f"{formatar_horas(total)} de {LIMITE_HORAS} h reservadas nesse dia"},
-    ]
-
-
 def proxima_meia_hora() -> datetime:
     t = agora().replace(second=0, microsecond=0)
     return t + timedelta(minutes=(30 - t.minute % 30) % 30 or 30)
@@ -167,23 +149,15 @@ def nova():
         except ServicoIndisponivel as exc:
             resultado = {"estado": "erro", "motivos": [str(exc)]}
 
-    salas, ocupacao, minhas = [], [], []
+    salas, ocupacao = [], []
     try:
         salas = cliente.salas()
         ocupacao = cliente.ocupacao(dia)
-        minhas = cliente.minhas()
     except (ServicoIndisponivel, ErroAPI) as exc:
         flash(str(exc), "erro")
     salas_por_id = {s["id"]: s for s in salas}
 
-    regras = None
-    if resultado and resultado.get("reserva"):
-        reserva = resultado["reserva"]
-        sala = salas_por_id.get(reserva["sala_id"])
-        if sala:
-            regras = regras_cumpridas(reserva, sala, minhas)
-            pedido_grelha = None
-    elif request.method == "GET" and valores["sala"].isdigit():
+    if request.method == "GET" and valores["sala"].isdigit():
         try:
             pedido_grelha = {"sala_id": int(valores["sala"]),
                              "inicio": datetime.fromisoformat(f"{valores['dia']}T{valores['inicio']}"),
@@ -209,7 +183,7 @@ def nova():
     return render_template(
         "reservar.html", ativo="nova", valores=valores, salas=salas,
         grelha=grelha(salas, ocupacao, dia, pedido_grelha), resultado=resultado,
-        regras=regras, alternativas=alternativas, salas_por_id=salas_por_id,
+        alternativas=alternativas, salas_por_id=salas_por_id,
         chave=uuid.uuid4().hex, dia=dia, limite=LIMITE_HORAS)
 
 
