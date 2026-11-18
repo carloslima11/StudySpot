@@ -28,10 +28,15 @@
 * Savio Netxitxi da Silva Casimira – 20240896 – L-EIF - 26/27 - D02 – 20240896@iade.pt;
 * Daniel Alexandre Mbeya Paulo – 20240992 – L-EIF - 26/27 - D02 – 20240992@iade.pt.
 
-8. **Palavras-chave:** reserva de salas, sistemas distribuídos, tolerância a faltas, segurança informática, autenticação de dois fatores, TOTP, inteligência artificial, CSP, IoT, MQTT, replicação, Docker.
+8. **Palavras-chave:** reserva de salas, sistemas distribuídos, tolerância a faltas, replicação síncrona, idempotência, locks distribuídos, segurança informática, autenticação de dois fatores, TOTP, Argon2, inteligência artificial, CSP, IoT, MQTT, Docker.
 
-9. **Tecnologias utilizadas:** Python, Flask, FastAPI, SQLAlchemy, Alembic, PostgreSQL, Redis, Nginx, Eclipse Mosquitto (MQTT), ESP32, pyotp, python-constraint, Docker, Docker Compose, GitHub, ClickUp.
+9. **Tecnologias utilizadas:** Python 3.12, FastAPI, Flask, Flask-Session, Gunicorn, SQLAlchemy, Alembic, PostgreSQL 18 (primário e réplica síncrona), Redis 7, Nginx, Eclipse Mosquitto (MQTT), paho-mqtt, segno (QR Codes), argon2-cffi, PyOTP, cryptography (AES-GCM), pytest, Docker, Docker Compose, GitHub, ClickUp.
 
-10. **Resumo curto:**
+10. **Entregas:**
+* 1.ª entrega (11/10/2026): análise e conceptualização;
+* 2.ª entrega (15/11/2026): protótipo distribuído funcional;
+* 3.ª entrega (20/12/2026): check-in IoT, realocação automática e versão final.
 
-O StudySpot é um sistema distribuído de reserva de salas de estudo universitárias, com autenticação de dois fatores (TOTP), validação automática de pedidos por Inteligência Artificial (Problema de Satisfação de Restrições) e check-in físico com dispositivos IoT via MQTT. A arquitetura é tolerante a faltas: serviços de autenticação e de reservas em várias instâncias atrás de um balanceador Nginx, base de dados PostgreSQL replicada, e Redis para sessões e locks distribuídos, tudo em containers Docker. A consistência impede reservas duplicadas, mesmo sob concorrência e falhas, através de locks, restrições na base de dados e chaves de idempotência. O projeto integra Engenharia de Software, Segurança Informática, Sistemas Distribuídos e Inteligência Artificial, e demonstra a tolerância a faltas com falhas provocadas.
+11. **Resumo curto:**
+
+O StudySpot é um sistema distribuído de reserva de salas de estudo universitárias, com autenticação de dois fatores (TOTP), validação automática de pedidos por Inteligência Artificial (Problema de Satisfação de Restrições) e check-in físico com QR Code e MQTT. Na 2.ª entrega, o protótipo corre em Docker Compose: duas instâncias do serviço de autenticação e duas do serviço de reservas atrás de um Nginx com HTTPS, Redis para sessões, tentativas de login e locks, e PostgreSQL com um primário e uma réplica síncrona. A combinação de locks no Redis, restrição UNIQUE na base de dados e chaves de idempotência impede reservas duplicadas, mesmo sob concorrência e falhas. A tolerância a faltas foi demonstrada parando instâncias e a réplica com o sistema em funcionamento. O check-in por QR Code e MQTT e a libertação automática de reservas sem check-in já têm código e testes, mas ficam desligados por omissão até à 3.ª entrega.
