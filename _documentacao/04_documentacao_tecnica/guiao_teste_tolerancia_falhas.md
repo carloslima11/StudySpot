@@ -38,7 +38,7 @@ docker compose exec -T postgres-replica sh -c 'psql -U "$POSTGRES_USER" -d "$POS
 
 Esperado: os dois health checks devolvem `200`; a réplica aparece como `studyspot_replica`, `streaming` e `sync`; `pg_is_in_recovery()` devolve `t`.
 
-Abrir a interface em `https://localhost:8443`, aceitar o certificado local e iniciar sessão com uma conta de teste. Se for preciso criar conta, usar "Criar conta" e configurar o TOTP no Google Authenticator. A página **Estado** mostra se os serviços respondem.
+Abrir a interface em `https://localhost:8443` e aceitar o certificado local. Se ainda não houver uma conta de teste, selecionar **Criar conta**, preencher os dados, configurar o TOTP no Google Authenticator e confirmar o primeiro código; depois, iniciar sessão com a palavra-passe e o código TOTP. Para os cenários seguintes, usar uma conta já criada. A página **Estado** mostra se os serviços respondem.
 
 ## 2. D1 — Falha de uma instância de autenticação
 

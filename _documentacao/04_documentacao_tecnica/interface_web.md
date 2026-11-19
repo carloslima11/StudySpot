@@ -13,15 +13,21 @@ O cliente web (`frontend/web_client/`) é uma aplicação Flask com páginas ger
 
 | Rota | Página | Captura |
 |---|---|---|
+| `/registo`, `/registo/2fa` | Criar conta e configurar o TOTP com um QR Code | `02_imagens/img_11.png` |
 | `/login` | Entrar, passo 1: email e palavra-passe | `02_imagens/img_09.png` |
 | `/verificar` | Entrar, passo 2: código de 6 dígitos do Google Authenticator | `02_imagens/img_10.png` |
-| `/registo`, `/registo/2fa` | Criar conta e configurar o TOTP com um QR Code | — |
-| `/reservar` | Nova reserva: formulário e grelha de disponibilidade do dia | `02_imagens/img_11.png` |
-| `/reservas` | As minhas reservas: próximas (com QR e cancelar), anteriores e lista de espera | `02_imagens/img_12.png` |
-| `/salas` | Salas de estudo: capacidade, horário e ocupação de hoje | `02_imagens/img_13.png` |
-| `/perfil` | Perfil: email, estado do 2FA, limite diário e resumo das reservas | `02_imagens/img_14.png` |
+| `/reservar` | Nova reserva: formulário e grelha de disponibilidade do dia | `02_imagens/img_12.png` |
+| `/reservas` | As minhas reservas: próximas (com QR e cancelar), anteriores e lista de espera | `02_imagens/img_13.png` |
+| `/salas` | Salas de estudo: capacidade, horário e ocupação de hoje | `02_imagens/img_14.png` |
+| `/perfil` | Perfil: email, estado do 2FA, limite diário e resumo das reservas | `02_imagens/img_15.png` |
 | `/estado` | Estado: se os serviços respondem e se a base de dados e o Redis estão prontos | — |
 | `/reservas/<id>/qr` | QR Code de check-in da reserva | — |
+
+### Criar conta e configurar o TOTP
+
+![Criar conta](../02_imagens/img_11.png)
+
+O registo começa com o nome, o e-mail académico e a palavra-passe. Depois, a pessoa configura o TOTP ao ler o QR Code com a aplicação autenticadora e confirma a configuração com o primeiro código válido.
 
 ### Entrar (dois passos)
 
@@ -33,23 +39,23 @@ O primeiro passo envia a palavra-passe ao serviço de autenticação, que devolv
 
 ### Nova reserva
 
-![Nova reserva](../02_imagens/img_11.png)
+![Nova reserva](../02_imagens/img_12.png)
 
 O formulário recolhe o pedido e a grelha mostra todas as salas do dia em blocos de 30 minutos. Ao submeter, o serviço de reservas corre o CSP: se houver vaga, escolhe a sala mais pequena que serve; se não houver, a página mostra o motivo e as alternativas, e, com a opção "Se estiver tudo ocupado, espero até", o pedido fica em lista de espera. O formulário leva uma chave de idempotência num campo oculto, por isso submetê-lo duas vezes não cria duas reservas.
 
 ### As minhas reservas
 
-![As minhas reservas](../02_imagens/img_12.png)
+![As minhas reservas](../02_imagens/img_13.png)
 
 Mostra as horas já reservadas no dia face ao limite de 4 horas, as próximas reservas com os botões "Mostrar QR" e "Cancelar", e o histórico com o estado de cada reserva.
 
 ### Salas
 
-![Salas de estudo](../02_imagens/img_13.png)
+![Salas de estudo](../02_imagens/img_14.png)
 
 ### Perfil
 
-![Perfil](../02_imagens/img_14.png)
+![Perfil](../02_imagens/img_15.png)
 
 ## Mensagens perante falhas
 
