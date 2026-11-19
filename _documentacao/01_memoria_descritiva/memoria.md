@@ -34,7 +34,7 @@ O problema abordado tem três vertentes:
 
 A estas vertentes junta-se a ocupação ineficiente: salas reservadas que ninguém utiliza.
 
-A solução é uma aplicação web em que os estudantes se autenticam com palavra-passe e um segundo fator (código TOTP gerado, por exemplo, no Google Authenticator) e submetem pedidos de reserva. Cada pedido é validado automaticamente por um motor de Inteligência Artificial, um Problema de Satisfação de Restrições (CSP) desenvolvido pela equipa, que verifica a capacidade da sala, o horário de funcionamento, a ausência de sobreposição e o limite diário de 4 horas por estudante. Quando não há vaga, o pedido entra numa lista de espera e o estudante recebe os motivos e alternativas. À porta de cada sala, um leitor (ESP32 ou simulado) lê o QR Code da reserva e envia o check-in por MQTT; as reservas sem check-in dentro do prazo são libertadas e a sala é atribuída à lista de espera.
+A solução é uma aplicação web em que os estudantes se autenticam com palavra-passe e um segundo fator (código TOTP gerado, por exemplo, no Authenticator) e submetem pedidos de reserva. Cada pedido é validado automaticamente por um motor de Inteligência Artificial, um Problema de Satisfação de Restrições (CSP), que verifica a capacidade da sala, o horário de funcionamento, a ausência de sobreposição e o limite diário de 4 horas por estudante. Quando não há vaga, o pedido entra numa lista de espera e o estudante recebe os motivos e alternativas. À porta de cada sala, um leitor (ESP32 ou simulado) lê o QR Code da reserva e envia o check-in por MQTT, as reservas sem check-in dentro do prazo são libertadas e a sala é atribuída à lista de espera.
 
 A arquitetura é distribuída e tolerante a faltas. Os serviços de autenticação e de reservas, desenvolvidos em Python com FastAPI, correm em duas instâncias sem estado cada, atrás de um Nginx que termina o HTTPS e balanceia os pedidos. Os dados persistem num PostgreSQL com um primário e uma réplica em replicação síncrona, e o Redis guarda as sessões, as tentativas de login e os locks distribuídos. A consistência das reservas combina um lock distribuído, uma restrição UNIQUE na base de dados e chaves de idempotência, de modo a impedir reservas duplicadas mesmo sob concorrência e perante falhas. Todos os componentes executam em containers Docker, geridos com Docker Compose.
 
@@ -92,18 +92,18 @@ Equipa de quatro elementos, com uma área principal cada: segurança informátic
 
 ### Descrição da solução desenvolvida
 
-Na 2.ª entrega, o StudySpot é um protótipo funcional executado com `docker compose up`. O estudante regista-se, configura o TOTP com um QR Code e inicia sessão em dois passos. Na página de reserva indica o número de pessoas, o dia e o horário; o motor CSP escolhe a sala mais pequena que serve, e a grelha de disponibilidade mostra a ocupação de todas as salas. Se não houver vaga, o pedido pode ficar em lista de espera até uma hora indicada. Em "As minhas reservas" o estudante vê o QR de check-in e pode cancelar.
+Na 2.ª entrega, o StudySpot é um protótipo funcional executado com `docker compose up`. O estudante regista-se, configura o TOTP com um QR Code e inicia sessão em dois passos. Na página de reserva indica o número de pessoas, o dia e o horário, o motor CSP escolhe a sala mais pequena que serve, e a grelha de disponibilidade mostra a ocupação de todas as salas. Se não houver vaga, o pedido pode ficar em lista de espera até uma hora indicada. Em "As minhas reservas" o estudante vê o QR de check-in e pode cancelar.
 
 Por baixo, o Nginx distribui os pedidos pelas instâncias `auth1`/`auth2` e `booking1`/`booking2` e deteta instâncias em falha. As sessões, as tentativas de login e os locks estão no Redis. Cada escrita só é confirmada depois de gravada no primário e na réplica do PostgreSQL. As capturas do protótipo estão em `02_imagens/img_09.png` a `img_14.png` e a arquitetura em `img_06.png`.
 
 ### Funcionalidades principais
 
-- Registo e login em dois passos com TOTP (Google Authenticator);
+- Registo e login em dois passos com TOTP (Authenticator);
 - Reserva de salas com validação automática por CSP, recusa fundamentada, alternativas e lista de espera;
 - Consulta da disponibilidade de todas as salas, por dia e em blocos de 30 minutos;
 - Consulta e cancelamento das próprias reservas, QR Code de check-in e perfil com o resumo das reservas;
 - Página de estado com os health checks dos serviços;
-- Tolerância a faltas demonstrada com falhas provocadas (paragem de instâncias e da réplica);
+- Tolerância a faltas demonstrada com falhas provocadas;
 - Check-in por QR Code e MQTT e libertação automática de reservas sem check-in (código pronto, desligado por omissão).
 
 ### Contributos relevantes
@@ -121,13 +121,19 @@ Por baixo, o Nginx distribui os pedidos pelas instâncias `auth1`/`auth2` e `boo
 - Definir primeiro as garantias que o sistema oferece e só depois escolher os mecanismos que as cumprem;
 - Um lock distribuído reduz a contenção, mas só uma restrição na base de dados garante a correção;
 - A replicação síncrona tem um custo real: com a réplica parada, as escritas ficam à espera. É uma escolha de consistência contra disponibilidade, e tem de ser explicada ao utilizador;
-- O Nginx não repete um POST já enviado a uma instância que falhou; sem chave de idempotência, o reenvio do utilizador podia criar uma reserva duplicada;
-- Ficheiros de configuração com fins de linha do Windows (CRLF) partem os scripts dos containers; os scripts em `database/postgres/` têm de ficar com fins de linha LF, o que um `.gitattributes` pode garantir;
+- O Nginx não repete um POST já enviado a uma instância que falhou, sem chave de idempotência, o reenvio do utilizador podia criar uma reserva duplicada;
+- Ficheiros de configuração com fins de linha do Windows (CRLF) partem os scripts dos containers, os scripts em `database/postgres/` têm de ficar com fins de linha LF, o que um `.gitattributes` pode garantir;
 - A coerência entre relatório, slides e modelo de faltas exige revisão cruzada entre as áreas.
 
 ### Limitações
 
-Instâncias únicas de Nginx, Redis, cliente web e broker MQTT; promoção manual do primário do PostgreSQL; a réplica não serve leituras; sem token CSRF nos formulários; sem auditoria encadeada por hash; certificado HTTPS autoassinado; dispositivos IoT simulados; demonstração local.
+- Instâncias únicas de Nginx, Redis, cliente web e broker MQTT;
+- Promoção manual do primário do PostgreSQL; 
+- A réplica não serve leituras; 
+- Sem token CSRF nos formulários; 
+- Sem auditoria encadeada por hash; 
+- Certificado HTTPS autoassinado; 
+- Dispositivos IoT simulados.
 
 ### Trabalho futuro
 

@@ -6,7 +6,7 @@
 |---|---|
 | `Relatorio_Projeto_Desenvolvimento_de_Software_StudySpot.pdf` | Relatório da 1.ª entrega (análise e conceptualização) |
 | `Relatorio_2a_Entrega_StudySpot.pdf` | Relatório da 2.ª entrega (protótipo distribuído) |
-| `Apresentacao_2a_Entrega_StudySpot.pptx` | Apresentação da 2.ª entrega |
+| `Apresentacao_2a_Entrega_StudySpot.pdf` | Apresentação da 2.ª entrega |
 | `Milestone2_IA_StudySpot.pdf` | Milestone 2 de Inteligência Artificial (motor CSP) |
 | `Wireframes_StudySpot.pdf` | Quatro propostas de wireframe da interface |
 
