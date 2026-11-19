@@ -21,6 +21,7 @@ class Sala:
     fecho: time
     ativa: bool = True
 
+
 @dataclass(frozen=True)
 class PedidoReserva:
 
@@ -82,7 +83,8 @@ class PedidoEspera:
     def concretizar(self, inicio: datetime) -> PedidoReserva:
         return PedidoReserva(
             id=self.id, estudante_id=self.estudante_id, participantes=self.participantes,
-            inicio=inicio, fim=inicio + timedelta(minutes=self.duracao_minutos),
+            inicio=inicio, fim=inicio +
+            timedelta(minutes=self.duracao_minutos),
             criado_em=self.criado_em, sala_id=self.sala_id)
 
 
@@ -108,14 +110,17 @@ class Resultado:
 @dataclass
 class Resolucao:
     atribuicoes: dict[str, str] = field(default_factory=dict)
-    horarios: dict[str, tuple[datetime, datetime]] = field(default_factory=dict)
+    horarios: dict[str, tuple[datetime, datetime]
+                   ] = field(default_factory=dict)
     rejeitados: dict[str, list[str]] = field(default_factory=dict)
     lista_espera: list[str] = field(default_factory=list)
+
 
 @dataclass
 class Alternativas:
     salas: list[str] = field(default_factory=list)
-    horarios: list[tuple[str, datetime, datetime]] = field(default_factory=list)
+    horarios: list[tuple[str, datetime, datetime]
+                   ] = field(default_factory=list)
 
 
 Atribuicao = Resolucao
@@ -243,14 +248,16 @@ def _motivos_rejeicao(p: Pedido, salas: list[Sala], reservas: list[Reserva],
         if not p.inicios_possiveis(cfg):
             return ["A duração pedida não cabe na janela indicada (ou é inválida)."]
         if opcoes:
-            limites = [verificar_limite_diario(c, reservas, cfg) for _, c in opcoes]
+            limites = [verificar_limite_diario(
+                c, reservas, cfg) for _, c in opcoes]
             if all(limites):
                 return [limites[0]]
             return [f"Não há horário livre entre {p.janela_inicio:%H:%M} e {p.janela_fim:%H:%M}."]
         base = p.concretizar(p.janela_inicio)
     else:
         base = p
-    melhor = min((validar_pedido(base, s, reservas, cfg).motivos for s in candidatas), key=len)
+    melhor = min(
+        (validar_pedido(base, s, reservas, cfg).motivos for s in candidatas), key=len)
     return melhor or ["Não foi possível alocar sala (conflito com outros pedidos)."]
 
 
@@ -272,12 +279,14 @@ def resolver(pedidos: Iterable[Pedido], salas: Iterable[Sala],
 
     resolucao = Resolucao(
         atribuicoes={pid: s.id for pid, (s, _) in atribuicoes.items()},
-        horarios={pid: (c.inicio, c.fim) for pid, (_, c) in atribuicoes.items()},
+        horarios={pid: (c.inicio, c.fim)
+                  for pid, (_, c) in atribuicoes.items()},
     )
     finais = existentes + [_tentativa(c, s) for s, c in atribuicoes.values()]
     for p in ordem:
         if p.id not in atribuicoes:
-            resolucao.rejeitados[p.id] = _motivos_rejeicao(p, salas, finais, cfg, dominios[p.id])
+            resolucao.rejeitados[p.id] = _motivos_rejeicao(
+                p, salas, finais, cfg, dominios[p.id])
             if any(verificar_limite_diario(c, finais, cfg) is None for _, c in dominios[p.id]):
                 resolucao.lista_espera.append(p.id)
     return resolucao
@@ -364,7 +373,8 @@ def sugerir_alternativas(pedido: PedidoReserva, salas: Iterable[Sala],
                                        s.id, ini, ini + duracao))
             ini += passo
     candidatos.sort(key=lambda c: c[:4])
-    resultado.horarios = [(c[2], c[3], c[4]) for c in candidatos[:max_horarios]]
+    resultado.horarios = [(c[2], c[3], c[4])
+                          for c in candidatos[:max_horarios]]
     return resultado
 
 
@@ -495,12 +505,15 @@ def _demonstracao() -> None:
          pedido("diogo", "B2", 2, (14, 0), (15, 30)), {"diogo": 3.0}),
     ]
     for titulo, reserva, historico in casos:
-        valida, mensagem = validar_reserva_csp(reserva, salas, abertura, fecho, historico)
+        valida, mensagem = validar_reserva_csp(
+            reserva, salas, abertura, fecho, historico)
         print(f"{titulo}\n  -> {'ACEITE' if valida else 'REJEITADA'}: {mensagem}")
         if not valida:
-            alternativa = sugerir_sala_alternativa(reserva, salas, abertura, fecho, historico)
+            alternativa = sugerir_sala_alternativa(
+                reserva, salas, abertura, fecho, historico)
             if alternativa:
-                print(f"  -> Sugestão: sala {alternativa} ({salas[alternativa]} lugares)")
+                print(
+                    f"  -> Sugestão: sala {alternativa} ({salas[alternativa]} lugares)")
         print()
 
 
